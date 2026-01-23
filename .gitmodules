@@ -1,3 +1,6 @@
 [submodule "external/qtserialbus"]
 	path = external/qtserialbus
 	url = https://code.qt.io/qt/qtserialbus.git
+[submodule "external/qtserialport"]
+	path = external/qtserialport
+	url = https://code.qt.io/qt/qtserialport.git
