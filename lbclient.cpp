@@ -64,9 +64,16 @@ void LBclient::setTCPaddr(const QUrl url)
 {
     lbhost = url.host();
     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
+#ifdef Q_OS_LINUX
+    QHostAddress addr;
+    addr.setAddress(url.host());
+    addr.setScopeId("enp2s0");
+    lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, addr.toString());
+#else
     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter,
-        (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
-        (url.host().prepend("[").append("]")):(url.host()));
+                                     (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
+                                         (url.host().prepend("[").append("]")):(url.host()));
+#endif
 }
 
 void LBclient::setlbHost(const QString host, const QString filename)
@@ -100,6 +107,10 @@ void LBclient::Execute()
         }else{
             connect(lbDevice,SIGNAL(stateChanged(QModbusDevice::State)),
                     this, SLOT(isConnected(QModbusDevice::State)));
+            qDebug() << "State:"
+                     << lbDevice->errorString()
+                     << lbDevice->connectionParameter(QModbusDevice::NetworkAddressParameter)
+                     << lbDevice->connectionParameter(QModbusDevice::NetworkPortParameter);
             lbDevice->connectDevice();
         }
     }else{

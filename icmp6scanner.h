@@ -4,8 +4,9 @@
 #include <QObject>
 #include <QNetworkInterface>
 #include <QHostAddress>
+#ifdef Q_OS_WIN
 #include <winsock2.h>
-
+#endif
 class Icmp6Scanner : public QObject
 {
     Q_OBJECT
@@ -32,7 +33,9 @@ private:
         uint16_t sequence;
         char SendData[32];
     };
+    #ifdef Q_OS_WIN
     void receiveReplies(SOCKET sock, const QNetworkInterface& iface);
+    #endif
 };
 
 #endif // ICMP6SCANNER_H

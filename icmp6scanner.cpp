@@ -1,7 +1,9 @@
 #include "icmp6scanner.h"
+#include <QtConcurrent>
+#ifdef Q_OS_WIN
 #include <iphlpapi.h>
 #include <ws2tcpip.h>
-#include <QtConcurrent>
+
 
 Icmp6Scanner::Icmp6Scanner(QObject *parent)
     : QObject{parent}
@@ -74,16 +76,6 @@ Icmp6Scanner::~Icmp6Scanner() {
     // qDebug()<<"Delete Icmp6Scanner";
 }
 
-void Icmp6Scanner::setTimeoutMs(int timeout)
-{
-    timeoutMs = timeout;
-}
-
-
-int Icmp6Scanner::getTimeoutMs()
-{
-    return timeoutMs;
-}
 
 void Icmp6Scanner::receiveReplies(SOCKET sock, const QNetworkInterface &iface)
 {
@@ -125,4 +117,31 @@ void Icmp6Scanner::receiveReplies(SOCKET sock, const QNetworkInterface &iface)
         //QHostAddress from(QString::fromUtf8(ipStr));
         emit replyReceived(QString::fromUtf8(ipStr), timer.nsecsElapsed()/1000, iface.index());
     }
+
+}
+#endif
+
+Icmp6Scanner::Icmp6Scanner(QObject *parent)
+{
+
+}
+
+Icmp6Scanner::~Icmp6Scanner()
+{
+
+}
+void Icmp6Scanner::setTimeoutMs(int timeout)
+{
+    timeoutMs = timeout;
+}
+
+
+int Icmp6Scanner::getTimeoutMs()
+{
+    return timeoutMs;
+}
+
+void Icmp6Scanner::sendMulticastRequest(const QNetworkInterface &iface, const QHostAddress &target)
+{
+
 }
