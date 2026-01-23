@@ -107,10 +107,6 @@ void LBclient::Execute()
         }else{
             connect(lbDevice,SIGNAL(stateChanged(QModbusDevice::State)),
                     this, SLOT(isConnected(QModbusDevice::State)));
-            qDebug() << "State:"
-                     << lbDevice->errorString()
-                     << lbDevice->connectionParameter(QModbusDevice::NetworkAddressParameter)
-                     << lbDevice->connectionParameter(QModbusDevice::NetworkPortParameter);
             lbDevice->connectDevice();
         }
     }else{
