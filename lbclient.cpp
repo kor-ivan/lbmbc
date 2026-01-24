@@ -1,4 +1,5 @@
 #include "lbclient.h"
+#include "discover.h"
 #include <QHostAddress>
 
 const QString LBclient::KeyGet = "get";
@@ -64,16 +65,44 @@ void LBclient::setTCPaddr(const QUrl url)
 {
     lbhost = url.host();
     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
-#ifdef Q_OS_LINUX
-    QHostAddress addr;
-    addr.setAddress(url.host());
-    addr.setScopeId("enp2s0");
-    lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, addr.toString());
-#else
     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter,
                                      (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
                                          (url.host().prepend("[").append("]")):(url.host()));
-#endif
+}
+
+// void LBclient::setTCPaddr(const QUrl url)
+// {
+//     lbhost = url.host();
+//     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
+// #ifdef Q_OS_LINUX
+//     addr.setAddress(url.host());
+//     qDebug()<<addr.scopeId().isEmpty();
+//     if (addr.scopeId().isEmpty())
+//         addr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
+//     qDebug()<<addr.toString();
+//     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, addr.toString());
+// #else
+//     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter,
+//                                      (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
+//                                          (url.host().prepend("[").append("]")):(url.host()));
+// #endif
+// }
+
+bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
+{
+    QHostAddress qhaddr;
+    if (qhaddr.setAddress(addr) && port>0 && port<65536){
+        qDebug()<<"setTCPaddr"<<qhaddr.scopeId().isEmpty() << iface.isEmpty();
+        if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
+            qhaddr.setScopeId(iface);
+        else
+            qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
+        qDebug()<<qhaddr.scopeId();
+        lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
+        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
+        return true;
+    }
+    return false;
 }
 
 void LBclient::setlbHost(const QString host, const QString filename)
@@ -81,9 +110,10 @@ void LBclient::setlbHost(const QString host, const QString filename)
     pyaml = new lbyaml(filename);
     if (pyaml->getErr() == lbyaml::NoError){
         pyaml->setlbhost(host);
-        QUrl url = QUrl::fromUserInput(pyaml->getIPv6fromYaml());
-        url.setPort(502);
-        setTCPaddr(url);
+        setTCPaddr(pyaml->getIPv6fromYaml(), 502, lbiface);
+        // QUrl url = QUrl::fromUserInput(pyaml->getIPv6fromYaml());
+        // url.setPort(502);
+        // setTCPaddr(url);
     }else{
         lbDevice->setDeviceError(lbYamlParsingErrorStr + pyaml->getErr(),lbYamlParsingError);
     }
@@ -531,6 +561,12 @@ void LBclient::isTimeout()
     i = 0;
     lbResponseBuffer.clear();
     SendRequest();
+}
+
+void LBclient::setlbiface(const QString &newlbiface)
+{
+    qDebug()<<"into setlbiface";
+    lbiface = newlbiface;
 }
 
 bool LBclient::getMulpipleRequest() const

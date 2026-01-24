@@ -117,7 +117,7 @@ void lbconsole::implement()
                    parser.positionalArguments().contains("restartall")){
             qDebug().noquote()<<"scan";
             LBclient *albc = new LBclient(this);
-            setlbAddr(parser, albc, lbhostOption, lbYamlConfOption, lbMacOption, hostOption);
+            setlbAddr(parser, albc, lbhostOption, lbYamlConfOption, lbMacOption, hostOption, lbInterfaceOption);
             connect(albc, &LBclient::lbDisconnect, this, &lbconsole::printDisconnect);
             lbprocess *lbproc = new lbprocess(this, albc);
             connect(lbproc, &lbprocess::outMessage, this, &lbconsole::printMessage);
@@ -164,7 +164,7 @@ void lbconsole::implement()
                 connect(lbc, &LBclient::ExecuteCompletedStr, this,&lbconsole::printMessage);
             }
             connect(lbc, &LBclient::lbDisconnect, this, &lbconsole::printDisconnect);
-            setlbAddr(parser, lbc, lbhostOption, lbYamlConfOption, lbMacOption, hostOption);
+            setlbAddr(parser, lbc, lbhostOption, lbYamlConfOption, lbMacOption, hostOption, lbInterfaceOption);
             if (parser.isSet(timeoutOption))
                 lbc->setTimeOut(parser.value(timeoutOption).toFloat()*1000);
             if (parser.isSet(lbFileNameOption))
@@ -197,16 +197,32 @@ void lbconsole::implement()
 //     // app->deleteLater();
 // }
 
-void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const QCommandLineOption &lbhostOption, const QCommandLineOption &lbYamlConfOption, const QCommandLineOption &lbMacOption, const QCommandLineOption &hostOption)
+void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const QCommandLineOption &lbhostOption, const QCommandLineOption &lbYamlConfOption, const QCommandLineOption &lbMacOption, const QCommandLineOption &hostOption, const QCommandLineOption &lbInterfaceOption)
 {
-    if(parser.isSet(lbhostOption))
+    QString host;
+    if (parser.isSet(lbMacOption))
+        host = lbyaml::MacToIPv6(parser.value(lbMacOption));
+    else
+        host = parser.value(hostOption);
+
+    if(parser.isSet(lbhostOption)){
+        if (parser.isSet(lbInterfaceOption))
+            lbc->setlbiface(parser.value(lbInterfaceOption));
         lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption));
+        }
+    else if (parser.isSet(lbInterfaceOption)){
+        lbc->setTCPaddr(host, 502, parser.value(lbInterfaceOption));
+    }
     else{
         QUrl url = QUrl::fromUserInput((parser.isSet(lbMacOption))?
                                            lbyaml::MacToIPv6(parser.value(lbMacOption)):
                                            parser.value(hostOption));
         url.setPort((QUrl::fromUserInput(DefaultHost)).port());
+#ifdef Q_OS_LINUX
+        lbc->setTCPaddr(host, QUrl::fromUserInput(DefaultHost).port());
+#else
         lbc->setTCPaddr(url);
+#endif
         qDebug()<< url;
     }
 }

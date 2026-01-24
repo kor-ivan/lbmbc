@@ -33,9 +33,9 @@ private:
         uint16_t sequence;
         char SendData[32];
     };
-    #ifdef Q_OS_WIN
+#ifdef Q_OS_WIN
     void receiveReplies(SOCKET sock, const QNetworkInterface& iface);
-    #endif
+#endif
 };
 
 #endif // ICMP6SCANNER_H

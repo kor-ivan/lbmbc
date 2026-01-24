@@ -14,6 +14,7 @@
 #include <QFile>
 
 
+
 class LBclient : public QObject
 {
 
@@ -28,6 +29,7 @@ public:
     explicit LBclient(QObject *parent, const std::initializer_list<QStringList> postArg, lbConnection conn = NotMaintainTCP);
     virtual ~LBclient();
     void setTCPaddr(const QUrl);
+    bool setTCPaddr(const QString addr, const int port, const QString iface="");
     void setlbHost(const QString host, const QString filename);
     void Execute();
     void setQueryString(const QStringList qstr);
@@ -58,6 +60,8 @@ public:
     void setLbConn(lbConnection newLbConn);
 
     bool getMulpipleRequest() const;
+
+    void setlbiface(const QString &newLbiface);
 
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
@@ -139,6 +143,7 @@ private:
     int byteCount = initByteCount;
     int lenCount = 0;
     QString lbhost;
+    QString lbiface;
     QString lbKey = "none";
     QString lblogKey = "a";
     int lblogfd = 0;

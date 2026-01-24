@@ -37,7 +37,8 @@ private:
                    const QCommandLineOption &lbhostOption,
                    const QCommandLineOption &lbYamlConfOption,
                    const QCommandLineOption &lbMacOption,
-                   const QCommandLineOption &hostOption);
+                   const QCommandLineOption &hostOption,
+                   const QCommandLineOption &lbInterfaceOption);
 
 private slots:
     void printOta(const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);

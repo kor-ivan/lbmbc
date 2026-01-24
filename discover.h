@@ -15,7 +15,7 @@ public:
     // explicit discover(QCoreApplication *a, QObject *parent = nullptr);
     virtual ~discover();
     void execute(int ifindex = 0);
-    QList<QNetworkInterface> getlbIfDiscover();
+    static QList<QNetworkInterface> getlbIfDiscover();
     struct lbinfo {
         QString name = "noname";
         QString type = "unknown";
