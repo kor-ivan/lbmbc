@@ -30,7 +30,7 @@ public:
     virtual ~LBclient();
     void setTCPaddr(const QUrl);
     bool setTCPaddr(const QString addr, const int port, const QString iface="");
-    void setlbHost(const QString host, const QString filename);
+    void setlbHost(const QString host, const QString filename, const QString iface="");
     void Execute();
     void setQueryString(const QStringList qstr);
     void setQueryString(const std::initializer_list<QStringList> qstr_list);
@@ -143,7 +143,6 @@ private:
     int byteCount = initByteCount;
     int lenCount = 0;
     QString lbhost;
-    QString lbiface;
     QString lbKey = "none";
     QString lblogKey = "a";
     int lblogfd = 0;

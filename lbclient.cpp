@@ -92,12 +92,14 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
 {
     QHostAddress qhaddr;
     if (qhaddr.setAddress(addr) && port>0 && port<65536){
-        qDebug()<<"setTCPaddr"<<qhaddr.scopeId().isEmpty() << iface.isEmpty();
-        if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
-            qhaddr.setScopeId(iface);
-        else
-            qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
-        qDebug()<<qhaddr.scopeId();
+        // qDebug()<<"setTCPaddr"<<qhaddr.scopeId().isEmpty() << iface.isEmpty() << qhaddr.protocol();
+        if (qhaddr.protocol()==QAbstractSocket::IPv6Protocol){
+            if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
+                qhaddr.setScopeId(iface);
+            else
+                qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
+            // qDebug()<<qhaddr.scopeId();
+        }
         lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
         return true;
@@ -105,12 +107,12 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
     return false;
 }
 
-void LBclient::setlbHost(const QString host, const QString filename)
+void LBclient::setlbHost(const QString host, const QString filename, const QString iface)
 {
     pyaml = new lbyaml(filename);
     if (pyaml->getErr() == lbyaml::NoError){
         pyaml->setlbhost(host);
-        setTCPaddr(pyaml->getIPv6fromYaml(), 502, lbiface);
+        setTCPaddr(pyaml->getIPv6fromYaml(), 502, iface);
         // QUrl url = QUrl::fromUserInput(pyaml->getIPv6fromYaml());
         // url.setPort(502);
         // setTCPaddr(url);
@@ -561,12 +563,6 @@ void LBclient::isTimeout()
     i = 0;
     lbResponseBuffer.clear();
     SendRequest();
-}
-
-void LBclient::setlbiface(const QString &newlbiface)
-{
-    qDebug()<<"into setlbiface";
-    lbiface = newlbiface;
 }
 
 bool LBclient::getMulpipleRequest() const
