@@ -5,6 +5,8 @@
 #include <iostream>
 #include "mbclient.h"
 
+#include "icmp6scanner.h"
+
 lbconsole::lbconsole(QCoreApplication *a)
     : QObject{a}, app(a)
 {
@@ -44,6 +46,7 @@ void lbconsole::implement()
     parser.addPositionalArgument("mactoip", "Converts a mac address to an ipv6 address using EUI-64");
     parser.addPositionalArgument("autoota", "Automatic firmware download in all PLC modules, need --fw option");
     parser.addPositionalArgument("scan", "Reads the configuration of all PLC modules, need --ip or --host or --mac option");
+    parser.addPositionalArgument("test", "Logic box test argument");
 
     QCommandLineOption hostOption({{"i","ip"},"IP address or host Modbus slave (Default: 127.0.0.1:502)","host:port",DefaultHost});
     parser.addOption(hostOption);
@@ -141,8 +144,14 @@ void lbconsole::implement()
             }else if (parser.positionalArguments().contains("scan"))
                 lbproc->run(lbprocess::scan, parser.positionalArguments().value(1, "sys.version"));
             else if (parser.positionalArguments().contains("restartall"))
-                lbproc->run(lbprocess::restartall);
-        }else{
+                lbproc->run(lbprocess::restartall);   
+        }
+        else if (parser.positionalArguments().contains("test")){
+            qDebug()<<"testing";
+            Icmp6Scanner* icmp = new Icmp6Scanner(this);
+            icmp->sendMulticastRequest(QNetworkInterface::interfaceFromIndex(3), QHostAddress("ff02::4c6f:6769:6342:6f78"));
+        }
+        else{
             LBclient *lbc = new LBclient(this, parser.positionalArguments());
             qDebug().noquote()<<lbc->getlbKey(); //print LogicBox Key
             if (lbc->getlbKey()==LBclient::KeyOta || lbc->getlbKey()==LBclient::KeyFboot){

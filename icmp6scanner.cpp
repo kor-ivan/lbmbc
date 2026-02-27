@@ -120,16 +120,74 @@ void Icmp6Scanner::receiveReplies(SOCKET sock, const QNetworkInterface &iface)
 
 }
 #endif
+#ifdef Q_OS_LINUX
+#include <QRegularExpression>
 
-Icmp6Scanner::Icmp6Scanner(QObject *parent)
+Icmp6Scanner::Icmp6Scanner(QObject *parent) : pingProcess(new QProcess(parent))
 {
+    connect(pingProcess, &QProcess::readyReadStandardOutput, [this]() {
+        QByteArray output = pingProcess->readAllStandardOutput();
+        // qDebug() << "Ответ получен..."<< output;
+        const QStringList lines = QString::fromUtf8(output).split('\n', Qt::SkipEmptyParts);
+        // Регулярное выражение для поиска адреса и времени
+        // Объяснение:
+        // bytes from ([a-f0-9:%]+)  -- ищет IPv6 адрес (группа 1)
+        // time=([\d.]+)             -- ищет число времени (группа 2)
+        QRegularExpression re("bytes from ([a-f0-9:]+)%([^:]+):.*time=([\\d.]+)");
+        for (const QString &line : lines) {
+            QRegularExpressionMatch match = re.match(line);
+            if (match.hasMatch()){
+                QString cleanIpv6 = match.captured(1);
+                // qDebug()<<"ipv6="<<cleanIpv6;
+                QString interface = match.captured(2);
 
+                double timeMs = match.captured(3).toDouble();
+                int timeUs = static_cast<int>(timeMs * 1000);
+                emit replyReceived(cleanIpv6, timeUs, QNetworkInterface::interfaceFromName(interface).index());
+                // qDebug() << "--- Найден ответ ---";
+                // qDebug() << "Address:" << cleanIpv6;
+                // qDebug() << "Interface:" << interface;
+                // qDebug() << "Delay (us):" << timeUs;
+            }
+        }
+    });
+    connect(pingProcess, &QProcess::readyReadStandardError, [this]() {
+        QByteArray error = pingProcess->readAllStandardError();
+        qDebug() << "Ошибка:" << error.trimmed();
+    });
+    connect(pingProcess, &QProcess::finished, [this](int exitCode) {
+        qDebug() << "Процесс завершился с кодом:" << exitCode;
+    });
 }
 
 Icmp6Scanner::~Icmp6Scanner()
 {
-
+    delete pingProcess;
 }
+
+void Icmp6Scanner::sendMulticastRequest(const QNetworkInterface &iface, const QHostAddress &target)
+{
+    QStringList arguments;
+    QString striface;
+    foreach (QNetworkAddressEntry j, iface.addressEntries()) {
+        if (j.ip().protocol()==QAbstractSocket::IPv6Protocol){
+            striface = j.ip().toString();
+            break;
+        }
+    }
+    QString t = QString::number(timeoutMs/1000);
+    arguments << "-6"
+              << target.toString()
+              << "-I" << striface
+              << "-w" << t
+              << "-i" << t
+              << "-s" << "32"                   // Размер пакета
+              << "-W" << "5";                // Паттерн данных
+    qDebug() << "Запуск ping...";
+    pingProcess->start(prg, arguments);
+}
+
+#endif
 void Icmp6Scanner::setTimeoutMs(int timeout)
 {
     timeoutMs = timeout;
@@ -141,7 +199,3 @@ int Icmp6Scanner::getTimeoutMs()
     return timeoutMs;
 }
 
-void Icmp6Scanner::sendMulticastRequest(const QNetworkInterface &iface, const QHostAddress &target)
-{
-
-}

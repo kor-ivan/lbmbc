@@ -7,6 +7,10 @@
 #ifdef Q_OS_WIN
 #include <winsock2.h>
 #endif
+#ifdef Q_OS_LINUX
+#include <QProcess>
+#endif
+
 class Icmp6Scanner : public QObject
 {
     Q_OBJECT
@@ -35,6 +39,10 @@ private:
     };
 #ifdef Q_OS_WIN
     void receiveReplies(SOCKET sock, const QNetworkInterface& iface);
+#endif
+#ifdef Q_OS_LINUX
+    QProcess* pingProcess;
+    QString prg = "ping";
 #endif
 };
 
