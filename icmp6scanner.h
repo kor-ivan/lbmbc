@@ -43,6 +43,7 @@ private:
 #ifdef Q_OS_LINUX
     QProcess* pingProcess;
     QString prg = "ping";
+    QString hrniface = "unknow";
 #endif
 };
 

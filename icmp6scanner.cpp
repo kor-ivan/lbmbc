@@ -156,7 +156,8 @@ Icmp6Scanner::Icmp6Scanner(QObject *parent) : pingProcess(new QProcess(parent))
         qDebug() << "Ошибка:" << error.trimmed();
     });
     connect(pingProcess, &QProcess::finished, [this](int exitCode) {
-        qDebug() << "Процесс завершился с кодом:" << exitCode;
+        emit scanFinished(hrniface);
+        // qDebug() << "Процесс завершился с кодом:" << exitCode << "Interface:"<<hrniface;
     });
 }
 
@@ -169,6 +170,7 @@ void Icmp6Scanner::sendMulticastRequest(const QNetworkInterface &iface, const QH
 {
     QStringList arguments;
     QString striface;
+    hrniface = iface.humanReadableName();
     foreach (QNetworkAddressEntry j, iface.addressEntries()) {
         if (j.ip().protocol()==QAbstractSocket::IPv6Protocol){
             striface = j.ip().toString();
@@ -183,7 +185,7 @@ void Icmp6Scanner::sendMulticastRequest(const QNetworkInterface &iface, const QH
               << "-i" << t
               << "-s" << "32"                   // Размер пакета
               << "-W" << "5";                // Паттерн данных
-    qDebug() << "Запуск ping...";
+    // qDebug() << "Запуск ping...";
     pingProcess->start(prg, arguments);
 }
 

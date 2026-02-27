@@ -142,6 +142,7 @@ void LBclient::Execute()
             lbDevice->connectDevice();
         }
     }else{
+        qDebug()<<"exestop..."<<lbDevice->error();
         Stoping();
     }
 }
@@ -235,6 +236,7 @@ void LBclient::isConnected(QModbusDevice::State)
         Run();
         break;
     case QModbusDevice::UnconnectedState:
+        qDebug()<<"isConnected stoping"<<lbDevice->state();
         Stoping();
         break;
     default:
