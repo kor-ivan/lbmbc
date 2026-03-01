@@ -1,5 +1,7 @@
 #include "lbclient.h"
+#ifdef Q_OS_LINUX
 #include "discover.h"
+#endif
 #include <QHostAddress>
 
 const QString LBclient::KeyGet = "get";
@@ -73,6 +75,9 @@ void LBclient::setTCPaddr(const QUrl url)
 
 bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
 {
+    lbhost = addr;
+    lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
+#ifdef Q_OS_LINUX
     QHostAddress qhaddr;
     if (qhaddr.setAddress(addr) && port>0 && port<65536){
         if (qhaddr.protocol()==QAbstractSocket::IPv6Protocol){
@@ -81,11 +86,16 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
             else
                 qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
         }
-        lbhost = addr;
-        lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
         return true;
     }
+#else
+    if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol){
+        QString ipv6 = addr;
+        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, ipv6.prepend("[").append("]"));
+    }else
+        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, addr);
+#endif
     return false;
 }
 

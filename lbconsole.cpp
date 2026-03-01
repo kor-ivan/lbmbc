@@ -227,11 +227,12 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const
                                            lbyaml::MacToIPv6(parser.value(lbMacOption)):
                                            parser.value(hostOption));
         url.setPort((QUrl::fromUserInput(DefaultHost)).port());
-#ifdef Q_OS_LINUX
+// #ifdef Q_OS_LINUX
+//         lbc->setTCPaddr(host, QUrl::fromUserInput(DefaultHost).port());
+// #else
+//         lbc->setTCPaddr(url);
+// #endif
         lbc->setTCPaddr(host, QUrl::fromUserInput(DefaultHost).port());
-#else
-        lbc->setTCPaddr(url);
-#endif
     }
 }
 
