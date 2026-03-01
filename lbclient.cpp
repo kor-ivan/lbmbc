@@ -70,36 +70,18 @@ void LBclient::setTCPaddr(const QUrl url)
                                          (url.host().prepend("[").append("]")):(url.host()));
 }
 
-// void LBclient::setTCPaddr(const QUrl url)
-// {
-//     lbhost = url.host();
-//     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
-// #ifdef Q_OS_LINUX
-//     addr.setAddress(url.host());
-//     qDebug()<<addr.scopeId().isEmpty();
-//     if (addr.scopeId().isEmpty())
-//         addr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
-//     qDebug()<<addr.toString();
-//     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, addr.toString());
-// #else
-//     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter,
-//                                      (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
-//                                          (url.host().prepend("[").append("]")):(url.host()));
-// #endif
-// }
 
 bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
 {
     QHostAddress qhaddr;
     if (qhaddr.setAddress(addr) && port>0 && port<65536){
-        // qDebug()<<"setTCPaddr"<<qhaddr.scopeId().isEmpty() << iface.isEmpty() << qhaddr.protocol();
         if (qhaddr.protocol()==QAbstractSocket::IPv6Protocol){
             if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
                 qhaddr.setScopeId(iface);
             else
                 qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
-            // qDebug()<<qhaddr.scopeId();
         }
+        lbhost = addr;
         lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
         return true;
@@ -142,7 +124,6 @@ void LBclient::Execute()
             lbDevice->connectDevice();
         }
     }else{
-        qDebug()<<"exestop..."<<lbDevice->error();
         Stoping();
     }
 }
@@ -236,7 +217,6 @@ void LBclient::isConnected(QModbusDevice::State)
         Run();
         break;
     case QModbusDevice::UnconnectedState:
-        qDebug()<<"isConnected stoping"<<lbDevice->state();
         Stoping();
         break;
     default:
@@ -256,7 +236,6 @@ void LBclient::SendRequest()
 
 void LBclient::Stoping()
 {
-    // qDebug()<<"...... Stoping";
     emit lbDisconnect(lbhost, lbDevice->errorString(), lbDevice->error());
 }
 
@@ -296,7 +275,6 @@ QJsonParseError LBclient::lbParseJson(const QByteArray &lbJsonStr, QJsonObject &
     QJsonParseError errJson;
     QJsonDocument docRead;
     docRead = docRead.fromJson(lbJsonStr, &errJson);
-    // qDebug()<<errJson.error<<lbJsonStr;
     if (errJson.error == QJsonParseError::NoError){
         QJsonObject jObj = docRead.object();
         QStringList keys = jObj.keys();

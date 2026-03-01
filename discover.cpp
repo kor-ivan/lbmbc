@@ -9,11 +9,11 @@ discover::discover(QObject *parent)
 
 discover::~discover()
 {
-    foreach (auto i, scanner)
-        delete i;
-    foreach (auto i, lbcMap) {
-        delete i;
-    }
+    // foreach (auto i, scanner)
+    //     delete i;
+    // foreach (auto i, lbcMap) {
+    //     delete i;
+    // }
 }
 
 
@@ -125,9 +125,9 @@ void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
             new LBclient(this, {{"get", "sys.ipaddr", "sys.devtype", "sys.macaddr"},{"getconf"}},LBclient::MaintainTCP));
         connect(lbMapIterator.value(), &LBclient::ExecuteCompletedJson, this, &discover::isExecuteCompletedJson);
         connect(lbMapIterator.value(), &LBclient::lbDisconnect, this, &discover::islbHostDisconnect);
-        QUrl url = QUrl::fromUserInput(from);
-        url.setPort(502);
-        lbMapIterator.value()->setTCPaddr(url);
+        // QUrl url = QUrl::fromUserInput(from);
+        // url.setPort(502);
+        lbMapIterator.value()->setTCPaddr(from, 502);
         lbMapIterator.value()->Execute();
         lbcCount++;
         lbFinishMap.insert(from, false);
