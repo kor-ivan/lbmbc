@@ -63,14 +63,14 @@ LBclient::~LBclient()
 }
 
 
-void LBclient::setTCPaddr(const QUrl url)
-{
-    lbhost = url.host();
-    lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
-    lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter,
-                                     (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
-                                         (url.host().prepend("[").append("]")):(url.host()));
-}
+// void LBclient::setTCPaddr(const QUrl url)
+// {
+//     lbhost = url.host();
+//     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
+//     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter,
+//                                      (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
+//                                          (url.host().prepend("[").append("]")):(url.host()));
+// }
 
 
 bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
