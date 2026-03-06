@@ -28,8 +28,8 @@ public:
 
 private:
     bool processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data) override;
-    static const QModbusDevice::Error lbNotValidResponse = (QModbusDevice::Error)0x10;
-    static const QModbusDevice::Error lbError = (QModbusDevice::Error)0x11;
+    static const QModbusDevice::Error lbNotValidResponse;
+    static const QModbusDevice::Error lbError;
     static const QString lbNotValidResponseStr;
     static const QString lbErrorStr;
 

@@ -4,6 +4,12 @@
 #endif
 #include <QHostAddress>
 
+const QModbusDevice::Error LBclient::lbSHAError = (QModbusDevice::Error)0x12;
+const QModbusDevice::Error LBclient::lbJsonParseError = (QModbusDevice::Error)0x13;
+const QModbusDevice::Error LBclient::lbKeyNotfoundError = (QModbusDevice::Error)0x14;
+const QModbusDevice::Error LBclient::lbConfError = (QModbusDevice::Error)0x15;
+const QModbusDevice::Error LBclient::lbYamlParsingError = (QModbusDevice::Error)0x16;
+
 const QString LBclient::KeyGet = "get";
 const QString LBclient::KeySet = "set";
 const QString LBclient::KeyForse = "force";

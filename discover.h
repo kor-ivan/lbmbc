@@ -37,7 +37,7 @@ public:
     static QString addColonsToMac (const QString &mac);
 
 signals:
-    void discoverCompleted (const QMap<QString, lbinfo>& DiscoverMap, const discoverError error, const QString errorStr);
+    void discoverCompleted (const QMap<QString, discover::lbinfo>& DiscoverMap, const discover::discoverError error, const QString errorStr);
     void icmpResponseReceived (const QString& ipv6, const int& delay, const int& ifindex);
 private:
     QMap<QString, lbinfo> getlbDiscoverMap();

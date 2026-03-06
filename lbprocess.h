@@ -39,7 +39,7 @@ public:
 signals:
     void outOta(const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
     void outMessage (const QString& lbstr, const QString& message, const QModbusDevice::Error error);
-    void scanCompleted (const QMap<qsizetype, scaninfo>& scan);
+    void scanCompleted (const QMap<qsizetype, lbprocess::scaninfo>& scan);
 private:
     LBclient *plbc = nullptr;
     QMap<qsizetype, scaninfo> lbscanMap;

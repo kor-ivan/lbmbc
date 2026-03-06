@@ -4,6 +4,10 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 
+const QModbusDevice::Error lbModbusClient::lbNotValidResponse = (QModbusDevice::Error)0x10;
+const QModbusDevice::Error lbModbusClient::lbError = (QModbusDevice::Error)0x10;
+
+
 const QString lbModbusClient::lbNotValidResponseStr = "Logic Box Response is not valid";
 const QString lbModbusClient::lbErrorStr = "Logic Box Error is ";
 
