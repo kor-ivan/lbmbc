@@ -156,7 +156,7 @@ void LBclient::setQueryString(const std::initializer_list<QStringList> qstr_list
 {
     if (!queryString.isEmpty())
         queryString.clear();
-    for (auto qstr : qstr_list) {
+    for (const auto &qstr : qstr_list) {
         queryString.append(qstr);
     }
     setlbBase(queryString.at(0)[0]);
@@ -305,7 +305,7 @@ QJsonParseError LBclient::lbParseJson(const QByteArray &lbJsonStr, QJsonObject &
             }
         }else if (!keys.empty() && keys.size()>1) {
             MulpipleRequest = true;
-            for (auto k : keys) {
+            for (const auto &k : keys) {
                 if (k==KeyGetconf){
                     lbParseGetconf(docRead, errJson, jObj, paramJsonObj);
                     if (errJson.error == QJsonParseError::NoError)
