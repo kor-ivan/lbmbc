@@ -109,10 +109,9 @@ void lbprocess::localMessage(const QString &lbstr, const QString &message, const
         switch (phase) {
         case logBustab:
         {
-            qsizetype index = lbstr.indexOf("bustab_dump1:");
+            qsizetype index = lbstr.indexOf(":", lbstr.indexOf("bustab_dump1:")+13);
             if (index!=-1)
-                // inf.mac = discover::addColonsToMac(lbstr.sliced(index + 17, 12));
-                inf.mac = lbstr.sliced(index + 17, 12);
+                inf.mac = lbstr.sliced(index + 2, 12);
             index = lbstr.indexOf("rank=");
             if (index!=-1){
                 QString s = lbstr.sliced(index + 5);
