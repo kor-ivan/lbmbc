@@ -243,7 +243,7 @@ void lbconsole::printOta(const QString &lbhost, const QStringList &result, const
 #ifdef Q_OS_LINUX
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    width = std::max(10, w.ws_col - 60);
+    width = std::max(10, w.ws_col - 61);
 #endif
         int prc = (int)result.at(1).toFloat();
         // float cbt = result.at(0).toFloat()/1000;
