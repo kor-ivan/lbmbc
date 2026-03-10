@@ -6,6 +6,10 @@
 #include "mbclient.h"
 
 #include "icmp6scanner.h"
+#ifdef Q_OS_LINUX
+#include <sys/ioctl.h>
+#include <unistd.h>
+#endif
 
 lbconsole::lbconsole(QCoreApplication *a)
     : QObject{a}, app(a)
@@ -235,7 +239,12 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const
 void lbconsole::printOta(const QString &lbhost, const QStringList &result, const QString &message, const QModbusDevice::Error error)
 {
     if(error==QModbusDevice::NoError){
-        int width = 50;
+    int width = 50;
+#ifdef Q_OS_LINUX
+    struct winsize w;
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+    width = std::max(10, w.ws_col - 60);
+#endif
         int prc = (int)result.at(1).toFloat();
         // float cbt = result.at(0).toFloat()/1000;
         int pos = (result.at(1).toFloat() * width) / 100;
