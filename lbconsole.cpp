@@ -5,7 +5,7 @@
 #include <iostream>
 #include "mbclient.h"
 
-#include "icmp6scanner.h"
+// #include "icmp6scanner.h"
 #ifdef Q_OS_LINUX
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -152,8 +152,11 @@ void lbconsole::implement()
         }
         else if (parser.positionalArguments().contains("test")){
             qDebug()<<"testing";
-            Icmp6Scanner* icmp = new Icmp6Scanner(this);
-            icmp->sendMulticastRequest(QNetworkInterface::interfaceFromIndex(3), QHostAddress("ff02::4c6f:6769:6342:6f78"));
+            lbyaml *y = new lbyaml(parser.value(lbYamlConfOption));
+            y->setlbhost("Satkar");
+            y->getallhost();
+            delete y;
+            emit lbQuit();
         }
         else{
             LBclient *lbc = new LBclient(this, parser.positionalArguments());

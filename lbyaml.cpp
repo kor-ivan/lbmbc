@@ -64,6 +64,20 @@ QString lbyaml::getErr() const
     return err;
 }
 
+void lbyaml::getvar()
+{
+
+}
+
+void lbyaml::getallhost()
+{
+    // YAML::Node node(config[host]);
+    foreach (auto i, config) {
+        std::cout<<i.first.Scalar()<<"#"<<
+            getlbmac(YamlToJson(config, host)).toStdString()<<"#"<<std::endl;
+    }
+}
+
 YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level)
 {
     YAML::Node lbconf;

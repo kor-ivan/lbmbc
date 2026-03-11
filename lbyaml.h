@@ -17,6 +17,9 @@ public:
     void setlbhost(QString h);
     static const QString NoError;
     QString getErr() const;
+
+    void getvar();
+    void getallhost();
 private:
     static YAML::Node JsonToYaml(QJsonObject qjo, int level=0);
     QJsonObject YamlToJson(const YAML::Node &fnode, QString host);
