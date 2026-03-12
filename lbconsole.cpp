@@ -50,6 +50,8 @@ void lbconsole::implement()
     parser.addPositionalArgument("mactoip", "Converts a mac address to an ipv6 address using EUI-64");
     parser.addPositionalArgument("autoota", "Automatic firmware download in all PLC modules, need --fw option");
     parser.addPositionalArgument("scan", "Reads the configuration of all PLC modules, need --ip or --host or --mac option");
+    parser.addPositionalArgument("gethosts", "Outputs all PLC names and mac addresses specified in the Yaml file options --yaml");
+    parser.addPositionalArgument("getvar", "Provides an analysis of Yaml variables in the host specified in the --host option");
     parser.addPositionalArgument("test", "Logic box test argument");
 
     QCommandLineOption hostOption({{"i","ip"},"IP address or host Modbus slave (Default: 127.0.0.1:502)","host:port",DefaultHost});
@@ -150,11 +152,34 @@ void lbconsole::implement()
             else if (parser.positionalArguments().contains("restartall"))
                 lbproc->run(lbprocess::restartall);   
         }
+        else if (parser.positionalArguments().contains("gethosts") || parser.positionalArguments().contains("getvar")){
+            lbyaml *y = new lbyaml(parser.value(lbYamlConfOption));
+            QMultiMap<QString, QString> HostMmap;
+            if (parser.positionalArguments().contains("gethosts")){
+                y->getallhost(HostMmap);
+                for (auto it = HostMmap.begin(); it != HostMmap.end(); ++it) {
+                    std::cout << std::setw(12) <<std::left <<
+                        it.key().toStdString() <<
+                        it.value().toStdString()<<std::endl;
+                }
+            }else if (parser.positionalArguments().contains("getvar")){
+                qDebug()<<"into getvar...";
+
+            }
+
+            delete y;
+            emit lbQuit();
+        }
         else if (parser.positionalArguments().contains("test")){
             qDebug()<<"testing";
             lbyaml *y = new lbyaml(parser.value(lbYamlConfOption));
-            y->setlbhost("Satkar");
-            y->getallhost();
+            QMultiMap<QString, QString> HostMmap;
+            y->getallhost(HostMmap);
+            for (auto it = HostMmap.begin(); it != HostMmap.end(); ++it) {
+                std::cout << std::setw(12) <<std::left <<
+                    it.key().toStdString() <<
+                    it.value().toStdString()<<std::endl;
+            }
             delete y;
             emit lbQuit();
         }

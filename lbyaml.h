@@ -19,7 +19,7 @@ public:
     QString getErr() const;
 
     void getvar();
-    void getallhost();
+    void getallhost(QMultiMap<QString, QString> &lbHostMmap);
 private:
     static YAML::Node JsonToYaml(QJsonObject qjo, int level=0);
     QJsonObject YamlToJson(const YAML::Node &fnode, QString host);

@@ -69,12 +69,12 @@ void lbyaml::getvar()
 
 }
 
-void lbyaml::getallhost()
+void lbyaml::getallhost(QMultiMap<QString, QString> &lbHostMmap)
 {
-    // YAML::Node node(config[host]);
+    QString h;
     foreach (auto i, config) {
-        std::cout<<i.first.Scalar()<<"#"<<
-            getlbmac(YamlToJson(config, host)).toStdString()<<"#"<<std::endl;
+        h = QString::fromStdString(i.first.Scalar());
+        lbHostMmap.insert(h, getlbmac(YamlToJson(config, h)));
     }
 }
 
@@ -138,7 +138,13 @@ QString lbyaml::MacToIPv6(QString mac)
 
 QString lbyaml::getlbmac(const QJsonObject &kqbo)
 {
-    return kqbo.find("slot-1").value().toObject().find("macaddr").value().toString();
+    auto ikqbo = kqbo.find("slot-1");
+    if (ikqbo!=kqbo.end()){
+        ikqbo = ikqbo.value().toObject().find("macaddr");
+        if (ikqbo!=kqbo.end())
+            return ikqbo.value().toString();
+    }
+    return "empty";
 }
 
 QString lbyaml::getIPv6fromYaml()
