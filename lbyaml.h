@@ -18,14 +18,28 @@ public:
     static const QString NoError;
     QString getErr() const;
 
-    void getvar();
+
     void getallhost(QMultiMap<QString, QString> &lbHostMmap);
+    struct lbvar {
+        QStringList var;
+        QStringList var_out;
+        QStringList var_dublicate;
+        bool multisource;
+        bool retain;
+        QString init;
+    };
+    QString getVarStat(QMap<QString, lbvar> &lbVarMap);
+    friend QDebug operator<<(QDebug out, const lbyaml::lbvar& varstr);
+
 private:
     static YAML::Node JsonToYaml(QJsonObject qjo, int level=0);
     QJsonObject YamlToJson(const YAML::Node &fnode, QString host);
     YAML::Node config;
     QString err;
     QString host;
+
+    QString find(const YAML::Node& node, const QString& qkey);
+    void getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node& node);
 };
 
 #endif // LBYAML_H

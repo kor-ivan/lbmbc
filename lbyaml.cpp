@@ -59,23 +59,86 @@ QJsonObject lbyaml::YamlToJson(const YAML::Node &fnode, QString host)
     return qjo;
 }
 
+QString lbyaml::find(const YAML::Node &node, const QString &qkey)
+{
+    if (!node.IsDefined()) return QString();
+    if (node.IsMap()) {
+        std::string key = qkey.toStdString();
+        if (node[key]) {
+            if (node[key].IsScalar()) {
+                return node[key].as<QString>();
+            }
+        }
+        for (auto it = node.begin(); it != node.end(); ++it) {
+            QString result = find(it->second, qkey);
+            if (!result.isEmpty()) return result;
+        }
+    }
+    return QString();
+}
+
+void lbyaml::getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node &node)
+{
+    if (node.IsDefined()){
+        switch (node.Type()) {
+        case YAML::NodeType::Scalar:
+            std::cout<<node.Scalar()<<"is Scalar";
+            break;
+        case YAML::NodeType::Map:
+            std::cout<<"is Map";
+            foreach (auto i, node) {
+                std::cout<<i.first.Scalar()<<" "<<i.second.IsMap()<<std::endl;
+                if (i.first.Scalar() == "var" && i.second.IsMap()){
+                    foreach (auto j, i.second) {
+                        std::cout<<j.first.Scalar()<<j.second.Type()<<std::endl;
+                        lbvar varstr;
+                        if (j.second.IsMap()){
+                            foreach (auto k, j.second) {
+                                if (k.first.Scalar() == "multisource" && k.second.Scalar() == "y")
+                                    varstr.multisource = true;
+                                if (k.first.Scalar() == "retain" && k.second.Scalar() == "y")
+                                    varstr.retain = true;
+                                if (k.first.Scalar() == "init" && k.second.IsScalar())
+                                    varstr.init = k.second.as<QString>();
+
+                            }
+                        }
+                        lbVarMap.insert(j.first.as<QString>(), varstr);
+                    }
+                }
+            }
+            break;
+        case YAML::NodeType::Sequence:
+            std::cout<<"is Sequence";
+            break;
+        default:
+            break;
+        }
+    }
+}
+
 QString lbyaml::getErr() const
 {
     return err;
 }
 
-void lbyaml::getvar()
-{
 
-}
 
 void lbyaml::getallhost(QMultiMap<QString, QString> &lbHostMmap)
 {
     QString h;
     foreach (auto i, config) {
         h = QString::fromStdString(i.first.Scalar());
-        lbHostMmap.insert(h, getlbmac(YamlToJson(config, h)));
+        lbHostMmap.insert(h, find(i.second, "macaddr"));
     }
+}
+
+QString lbyaml::getVarStat(QMap<QString, lbvar> &lbVarMap)
+{
+    std::cout<<"into getVarStat..."<<std::endl;
+    getvar(lbVarMap, config[host]);
+
+    return QString();
 }
 
 YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level)
@@ -155,4 +218,9 @@ QString lbyaml::getIPv6fromYaml()
 void lbyaml::setlbhost(QString h)
 {
     host = h;
+}
+
+QDebug operator<<(QDebug out, const lbyaml::lbvar& varstr){
+    out<<varstr.var<<varstr.var_out<<varstr.var_dublicate<<varstr.multisource<<varstr.retain<<varstr.init;
+    return out;
 }
