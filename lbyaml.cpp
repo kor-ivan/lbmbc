@@ -77,44 +77,120 @@ QString lbyaml::find(const YAML::Node &node, const QString &qkey)
     return QString();
 }
 
-void lbyaml::getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node &node)
+void lbyaml::getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node &node, const QStringList level)
 {
-    if (node.IsDefined()){
-        switch (node.Type()) {
-        case YAML::NodeType::Scalar:
-            std::cout<<node.Scalar()<<"is Scalar";
-            break;
-        case YAML::NodeType::Map:
-            std::cout<<"is Map";
-            foreach (auto i, node) {
-                std::cout<<i.first.Scalar()<<" "<<i.second.IsMap()<<std::endl;
-                if (i.first.Scalar() == "var" && i.second.IsMap()){
-                    foreach (auto j, i.second) {
-                        std::cout<<j.first.Scalar()<<j.second.Type()<<std::endl;
-                        lbvar varstr;
-                        if (j.second.IsMap()){
-                            foreach (auto k, j.second) {
-                                if (k.first.Scalar() == "multisource" && k.second.Scalar() == "y")
-                                    varstr.multisource = true;
-                                if (k.first.Scalar() == "retain" && k.second.Scalar() == "y")
-                                    varstr.retain = true;
-                                if (k.first.Scalar() == "init" && k.second.IsScalar())
-                                    varstr.init = k.second.as<QString>();
-
-                            }
+    if (node.IsDefined() && node.IsMap()){
+        foreach (auto i, node) {
+            // if var:
+            QString key;
+            if (i.first.Scalar() == "var" && i.second.IsMap()){
+                foreach (auto j, i.second) {
+                    key = QString::fromStdString(j.first.Scalar());
+                    lbvar varstr;
+                    if (lbVarMap.contains(key))
+                        varstr = lbVarMap.value(key);
+                    qDebug()<<expandVar(key);
+                    if (j.second.IsMap()){
+                        foreach (auto k, j.second) {
+                            if (k.first.Scalar() == "multisource" && k.second.Scalar() == "y")
+                                varstr.multisource = true;
+                            if (k.first.Scalar() == "retain" && k.second.Scalar() == "y")
+                                varstr.retain = true;
+                            if (k.first.Scalar() == "init" && k.second.IsScalar())
+                                varstr.init = k.second.as<QString>();
                         }
-                        lbVarMap.insert(j.first.as<QString>(), varstr);
+                    }
+                    lbVarMap.insert(key, varstr);
+                }
+            }
+            // if not var:
+            else if (i.second.IsScalar()){
+                key = QString::fromStdString(i.second.Scalar());
+                lbvar varstr;
+                qDebug()<<expandVar(key);
+                if (i.first.Scalar() == "var"){
+                    if (lbVarMap.contains(key))
+                        varstr = lbVarMap.value(key);
+                    varstr.var.append(level);
+                    lbVarMap.insert(key, varstr);
+                }
+                if (i.first.Scalar() == "var_out"){
+                    if (lbVarMap.contains(key))
+                        varstr = lbVarMap.value(key);
+                    varstr.var_out.append(level);
+                    lbVarMap.insert(key, varstr);
+                }
+            }
+            else if (i.second.IsSequence()){
+                if (i.first.Scalar() == "var"){
+                    foreach (auto j, i.second){
+                        if (j.IsScalar()){
+                            key = QString::fromStdString(j.Scalar());
+                            lbvar varstr;
+                            if (lbVarMap.contains(key))
+                                varstr = lbVarMap.value(key);
+                            varstr.var.append(level);
+                            lbVarMap.insert(key, varstr);
+                        }
+                    }
+                }
+                if (i.first.Scalar() == "var_out"){
+                    foreach (auto j, i.second){
+                        if (j.IsScalar()){
+                            key = QString::fromStdString(j.Scalar());
+                            lbvar varstr;
+                            if (lbVarMap.contains(key))
+                                varstr = lbVarMap.value(key);
+                            varstr.var_out.append(level);
+                            lbVarMap.insert(key, varstr);
+                        }
                     }
                 }
             }
-            break;
-        case YAML::NodeType::Sequence:
-            std::cout<<"is Sequence";
-            break;
-        default:
-            break;
+            else{
+                QStringList qsl = level;
+                getvar(lbVarMap, i.second, qsl << QString::fromStdString(i.first.Scalar()));
+            }
         }
     }
+}
+
+QStringList lbyaml::expandVar(const QString &key)
+{
+    QStringList result;
+
+    // 1. Ищем диапазон: буквы + число + ровно две точки + число
+    // Используем \.\. чтобы явно указать две точки
+    static const QRegularExpression rangeRe(R"(^([a-zA-Z]+)(\d+)\.\.(\d+)$)");
+
+    // 2. Ищем "вариант с точкой": буквы + число + одиночная точка
+    // [^.] перед точкой гарантирует, что мы не попали на вторую точку из ".."
+    static const QRegularExpression dotRe(R"(^([a-zA-Z]+)(\d+)\.[^.])");
+
+    // 1. Проверяем на диапазон di0..15
+    QRegularExpressionMatch rangeMatch = rangeRe.match(key);
+    if (rangeMatch.hasMatch()) {
+        QString prefix = rangeMatch.captured(1);
+        int start = rangeMatch.captured(2).toInt();
+        int end = rangeMatch.captured(3).toInt();
+
+        for (int i = start; i <= end; ++i) {
+            result.append(prefix + QString::number(i));
+        }
+        return result;
+    }
+
+    // 2. Проверяем на наличие точки mw0.0..15
+    QRegularExpressionMatch dotMatch = dotRe.match(key);
+    if (dotMatch.hasMatch()) {
+        // Забираем только префикс и первое число (mw + 0)
+        result.append(dotMatch.captured(1) + dotMatch.captured(2));
+        return result;
+    }
+
+    // 3. Если ничего не подошло, возвращаем как есть
+    result.append(key);
+    return result;
 }
 
 QString lbyaml::getErr() const
@@ -221,6 +297,6 @@ void lbyaml::setlbhost(QString h)
 }
 
 QDebug operator<<(QDebug out, const lbyaml::lbvar& varstr){
-    out<<varstr.var<<varstr.var_out<<varstr.var_dublicate<<varstr.multisource<<varstr.retain<<varstr.init;
+    out<<varstr.var<<varstr.var_out<<varstr.multisource<<varstr.retain<<varstr.init;
     return out;
 }

@@ -21,11 +21,10 @@ public:
 
     void getallhost(QMultiMap<QString, QString> &lbHostMmap);
     struct lbvar {
-        QStringList var;
-        QStringList var_out;
-        QStringList var_dublicate;
-        bool multisource;
-        bool retain;
+        QList<QStringList> var;
+        QList<QStringList> var_out;
+        bool multisource = false;
+        bool retain = false;
         QString init;
     };
     QString getVarStat(QMap<QString, lbvar> &lbVarMap);
@@ -39,7 +38,8 @@ private:
     QString host;
 
     QString find(const YAML::Node& node, const QString& qkey);
-    void getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node& node);
+    void getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node& node, const QStringList level = QStringList());
+    QStringList expandVar(const QString &key);
 };
 
 #endif // LBYAML_H
