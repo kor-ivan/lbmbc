@@ -39,7 +39,12 @@ private:
 
     QString find(const YAML::Node& node, const QString& qkey);
     void getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node& node, const QStringList level = QStringList());
-    QStringList expandVar(const QString &key);
+    QStringList expandVar(const QString &key, bool *point = nullptr);
+    void addlbVar_isMap(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap);
+    void addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList));
+    void addlbVar_isSequence(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList));
+    static void addVar(lbvar &lbvar, QStringList level);
+    static void addVar_out(lbvar &lbvar, QStringList level);
 };
 
 #endif // LBYAML_H

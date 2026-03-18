@@ -82,70 +82,20 @@ void lbyaml::getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node &node, cons
     if (node.IsDefined() && node.IsMap()){
         foreach (auto i, node) {
             // if var:
-            QString key;
-            if (i.first.Scalar() == "var" && i.second.IsMap()){
-                foreach (auto j, i.second) {
-                    key = QString::fromStdString(j.first.Scalar());
-                    lbvar varstr;
-                    if (lbVarMap.contains(key))
-                        varstr = lbVarMap.value(key);
-                    qDebug()<<expandVar(key);
-                    if (j.second.IsMap()){
-                        foreach (auto k, j.second) {
-                            if (k.first.Scalar() == "multisource" && k.second.Scalar() == "y")
-                                varstr.multisource = true;
-                            if (k.first.Scalar() == "retain" && k.second.Scalar() == "y")
-                                varstr.retain = true;
-                            if (k.first.Scalar() == "init" && k.second.IsScalar())
-                                varstr.init = k.second.as<QString>();
-                        }
-                    }
-                    lbVarMap.insert(key, varstr);
-                }
-            }
+            if (i.first.Scalar() == "var" && i.second.IsMap())
+                addlbVar_isMap(i.second, lbVarMap);
             // if not var:
             else if (i.second.IsScalar()){
-                key = QString::fromStdString(i.second.Scalar());
-                lbvar varstr;
-                qDebug()<<expandVar(key);
-                if (i.first.Scalar() == "var"){
-                    if (lbVarMap.contains(key))
-                        varstr = lbVarMap.value(key);
-                    varstr.var.append(level);
-                    lbVarMap.insert(key, varstr);
-                }
-                if (i.first.Scalar() == "var_out"){
-                    if (lbVarMap.contains(key))
-                        varstr = lbVarMap.value(key);
-                    varstr.var_out.append(level);
-                    lbVarMap.insert(key, varstr);
-                }
+                if (i.first.Scalar() == "var")
+                    addlbVar_isScalar(i.second, lbVarMap, level, addVar);
+                if (i.first.Scalar() == "var_out")
+                    addlbVar_isScalar(i.second, lbVarMap, level, addVar_out);
             }
             else if (i.second.IsSequence()){
-                if (i.first.Scalar() == "var"){
-                    foreach (auto j, i.second){
-                        if (j.IsScalar()){
-                            key = QString::fromStdString(j.Scalar());
-                            lbvar varstr;
-                            if (lbVarMap.contains(key))
-                                varstr = lbVarMap.value(key);
-                            varstr.var.append(level);
-                            lbVarMap.insert(key, varstr);
-                        }
-                    }
-                }
-                if (i.first.Scalar() == "var_out"){
-                    foreach (auto j, i.second){
-                        if (j.IsScalar()){
-                            key = QString::fromStdString(j.Scalar());
-                            lbvar varstr;
-                            if (lbVarMap.contains(key))
-                                varstr = lbVarMap.value(key);
-                            varstr.var_out.append(level);
-                            lbVarMap.insert(key, varstr);
-                        }
-                    }
-                }
+                if (i.first.Scalar() == "var")
+                    addlbVar_isSequence(i.second, lbVarMap, level, addVar);
+                if (i.first.Scalar() == "var_out")
+                    addlbVar_isSequence(i.second, lbVarMap, level, addVar_out);
             }
             else{
                 QStringList qsl = level;
@@ -155,7 +105,7 @@ void lbyaml::getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node &node, cons
     }
 }
 
-QStringList lbyaml::expandVar(const QString &key)
+QStringList lbyaml::expandVar(const QString &key, bool *point)
 {
     QStringList result;
 
@@ -177,6 +127,8 @@ QStringList lbyaml::expandVar(const QString &key)
         for (int i = start; i <= end; ++i) {
             result.append(prefix + QString::number(i));
         }
+
+        if (point) *point = false;
         return result;
     }
 
@@ -185,13 +137,93 @@ QStringList lbyaml::expandVar(const QString &key)
     if (dotMatch.hasMatch()) {
         // Забираем только префикс и первое число (mw + 0)
         result.append(dotMatch.captured(1) + dotMatch.captured(2));
+        if (point) *point = true;
         return result;
     }
 
     // 3. Если ничего не подошло, возвращаем как есть
     result.append(key);
+    if (point) *point = false;
     return result;
 }
+
+void lbyaml::addlbVar_isMap(const YAML::Node &node, QMap<QString, lbvar> &lbVarMap)
+{
+    QStringList keylist;
+    foreach (auto j, node) {
+        keylist = expandVar(QString::fromStdString(j.first.Scalar()));
+        foreach (auto key, keylist) {
+            lbvar varstr;
+            if (lbVarMap.contains(key))
+                varstr = lbVarMap.value(key);
+            if (j.second.IsMap()){
+                foreach (auto k, j.second) {
+                    if (k.first.Scalar() == "multisource" && k.second.Scalar() == "y")
+                        varstr.multisource = true;
+                    if (k.first.Scalar() == "retain" && k.second.Scalar() == "y")
+                        varstr.retain = true;
+                    if (k.first.Scalar() == "init" && k.second.IsScalar())
+                        varstr.init = k.second.as<QString>();
+                }
+            }
+            lbVarMap.insert(key, varstr);
+        }
+    }
+}
+
+void lbyaml::addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList))
+{
+    bool point = false;
+    QStringList keylist = expandVar(QString::fromStdString(node.Scalar()), &point);
+    QStringList levellist;
+    if (!point)
+        levellist = expandVar(level.last());
+    else
+        levellist << level.last();
+    if (keylist.size()==levellist.size()){
+        QString key;
+        QStringList l = level;
+        for (int k = 0; k < keylist.size(); ++k) {
+            lbvar varstr;
+            key = keylist.at(k);
+            if (lbVarMap.contains(key))
+                varstr = lbVarMap.value(key);
+            l.last() = levellist.at(k);
+            pf(varstr, l);
+            lbVarMap.insert(key, varstr);
+        }
+    }else{
+        err = QString::fromStdString(node.Scalar()) + level.last() + "the left and right ranges are not equal";
+    }
+}
+
+void lbyaml::addlbVar_isSequence(const YAML::Node &node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar &, QStringList))
+{
+
+    foreach (auto j, node){
+        if (j.IsScalar()){
+            QStringList keylist = expandVar(QString::fromStdString(j.Scalar()));
+            foreach (auto key, keylist) {
+                lbvar varstr;
+                if (lbVarMap.contains(key))
+                    varstr = lbVarMap.value(key);
+                pf(varstr, level);
+                lbVarMap.insert(key, varstr);
+            }
+        }
+    }
+}
+
+void lbyaml::addVar(lbvar &lbvar, QStringList level)
+{
+    lbvar.var.append(level);
+}
+
+void lbyaml::addVar_out(lbvar &lbvar, QStringList level)
+{
+    lbvar.var_out.append(level);
+}
+
 
 QString lbyaml::getErr() const
 {
@@ -213,6 +245,7 @@ QString lbyaml::getVarStat(QMap<QString, lbvar> &lbVarMap)
 {
     std::cout<<"into getVarStat..."<<std::endl;
     getvar(lbVarMap, config[host]);
+
 
     return QString();
 }
