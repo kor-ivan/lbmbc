@@ -165,11 +165,9 @@ void lbconsole::implement()
             }else if (parser.positionalArguments().contains("getvar")){
                 qDebug()<<"into getvar...";
                 y->setlbhost(parser.value(lbhostOption));
-                QMap<QString, lbyaml::lbvar> varmap;
-                y->getVarStat(varmap);
-                for (auto i = varmap.begin(); i != varmap.end(); ++i){
-                    qDebug().noquote()<<i.key()<<i.value();
-                }
+
+                y->getVarStat();
+                qDebug()<<y->getLbVarMap();
             }
             delete y;
             emit lbQuit();

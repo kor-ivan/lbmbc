@@ -27,8 +27,11 @@ public:
         bool retain = false;
         QString init;
     };
-    QString getVarStat(QMap<QString, lbvar> &lbVarMap);
+    QString getVarStat();
     friend QDebug operator<<(QDebug out, const lbyaml::lbvar& varstr);
+    friend QDebug operator<<(QDebug out, const QMap<QString, lbvar> &lbVarMap);
+
+    QMap<QString, lbvar> getLbVarMap() const;
 
 private:
     static YAML::Node JsonToYaml(QJsonObject qjo, int level=0);
@@ -37,6 +40,7 @@ private:
     QString err;
     QString host;
 
+    QMap<QString, lbvar> lbVarMap;
     QString find(const YAML::Node& node, const QString& qkey);
     void getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node& node, const QStringList level = QStringList());
     QStringList expandVar(const QString &key, bool *point = nullptr);
