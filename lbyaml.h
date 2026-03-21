@@ -19,7 +19,7 @@ public:
     QString getErr() const;
 
 
-    void getallhost(QMultiMap<QString, QString> &lbHostMmap);
+    QMultiMap<QString, QString> getallhost();
     struct lbvar {
         QList<QStringList> var;
         QList<QStringList> var_out;
@@ -27,9 +27,14 @@ public:
         bool retain = false;
         QString init;
     };
-    QString getVarStat();
-    friend QDebug operator<<(QDebug out, const lbyaml::lbvar& varstr);
-    friend QDebug operator<<(QDebug out, const QMap<QString, lbvar> &lbVarMap);
+    struct lbvarstat {
+        int quantity = 0;
+        QStringList mustMultisource;
+        QStringList handlingVar;
+        QStringList noaddedForte;
+    };
+
+    lbvarstat getVarStat();
 
     QMap<QString, lbvar> getLbVarMap() const;
 
@@ -41,6 +46,8 @@ private:
     QString host;
 
     QMap<QString, lbvar> lbVarMap;
+    QMultiMap<QString, QString> lbHostMmap;
+
     QString find(const YAML::Node& node, const QString& qkey);
     void getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node& node, const QStringList level = QStringList());
     QStringList expandVar(const QString &key, bool *point = nullptr);
@@ -50,5 +57,7 @@ private:
     static void addVar(lbvar &lbvar, QStringList level);
     static void addVar_out(lbvar &lbvar, QStringList level);
 };
+
+
 
 #endif // LBYAML_H

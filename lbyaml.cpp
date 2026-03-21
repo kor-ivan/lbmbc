@@ -198,7 +198,7 @@ void lbyaml::addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbV
             lbVarMap.insert(key, varstr);
         }
     }else{
-        err = QString::fromStdString(node.Scalar()) + level.last() + "the left and right ranges are not equal";
+        err = QString::fromStdString(node.Scalar()) + " " + level.last() + " the left and right ranges are not equal";
     }
 }
 
@@ -237,37 +237,31 @@ QString lbyaml::getErr() const
 
 
 
-void lbyaml::getallhost(QMultiMap<QString, QString> &lbHostMmap)
+QMultiMap<QString, QString> lbyaml::getallhost()
 {
     QString h;
     foreach (auto i, config) {
         h = QString::fromStdString(i.first.Scalar());
         lbHostMmap.insert(h, find(i.second, "macaddr"));
     }
+    return lbHostMmap;
 }
 
-QString lbyaml::getVarStat()
+lbyaml::lbvarstat lbyaml::getVarStat()
 {
-    std::cout<<"into getVarStat..."<<std::endl;
     getvar(lbVarMap, config[host]);
-    int quantity = lbVarMap.size();
-    QStringList mustMultisource;
-    QStringList handlingVar;
-    QStringList noaddedForte;
+    lbvarstat statstr;
+    statstr.quantity = lbVarMap.size();
     for (auto it = lbVarMap.begin(); it != lbVarMap.end(); ++it) {
         if (it.value().var.size()>1 && it.value().multisource == false)
-            mustMultisource<<it.key();
+            statstr.mustMultisource<<it.key();
         if (it.value().var.size() == 0 || it.value().var_out.size() == 0)
-            handlingVar<<it.key();
+            statstr.handlingVar<<it.key();
         if (!it.value().var.contains(QStringList() << "forte") && !it.value().var_out.contains(QStringList() << "forte"))
-            noaddedForte<<it.key();
+            statstr.noaddedForte<<it.key();
     }
-    qDebug()<<"Size :"<<quantity;
-    qDebug()<<"MustMultisource :" << mustMultisource;
-    qDebug()<<"HandlingVar :" << handlingVar;
-    qDebug()<<"nodaddedForte :" << noaddedForte;
 
-    return QString();
+    return statstr;
 }
 
 YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level)
@@ -347,73 +341,4 @@ QString lbyaml::getIPv6fromYaml()
 void lbyaml::setlbhost(QString h)
 {
     host = h;
-}
-
-QDebug operator<<(QDebug out, const lbyaml::lbvar& varstr){
-    out<<varstr.var<<varstr.var_out<<varstr.multisource<<varstr.retain<<varstr.init;
-    return out;
-}
-
-// Вспомогательная функция для красивого вывода QList<QStringList>
-QString formatList(const QList<QStringList> &list) {
-    if (list.isEmpty()) return "-";
-    QStringList groups;
-    for (const auto &subList : list) {
-        groups << "(" + subList.join(",") + ")";
-    }
-    return groups.join(" ");
-}
-
-// Функция для разбиения строки на куски фиксированной длины
-QStringList wrapText(QString text, int width) {
-    if (text.isEmpty()) return {"-"};
-    QStringList result;
-    for (int i = 0; i < text.length(); i += width) {
-        result << text.mid(i, width).trimmed();
-    }
-    return result;
-}
-
-QDebug operator<<(QDebug out, const QMap<QString, lbyaml::lbvar> &lbVarMap) {
-    // 1. Задаем фиксированную ширину колонок
-    const int wN = 16, wV = 20, wO = 20, wM = 5, wR = 5, wI = 6;
-
-    // Формат строки (без лишних пробелов в начале/конце)
-    auto fmt = [=](const QString& a, const QString& b, const QString& c,
-                   const QString& d, const QString& e, const QString& f) {
-        return QString("%1 | %2 | %3 | %4 | %5 | %6")
-        .arg(a, -wN).arg(b, -wV).arg(c, -wO).arg(d, -wM).arg(e, -wR).arg(f, -wI);
-    };
-
-    QString table;
-    QString header = fmt("VarName", "Var", "Var_out", "Multi", "Ret", "Init");
-    table += header + "\n" + QString(header.length(), '-') + "\n";
-
-    for (auto i = lbVarMap.begin(); i != lbVarMap.end(); ++i) {
-        const auto &v = i.value();
-
-        // Разбиваем длинные списки на части
-        QStringList names = wrapText(i.key(), wN);
-        QStringList vars  = wrapText(formatList(v.var), wV);
-        QStringList outs  = wrapText(formatList(v.var_out), wO);
-
-        // Определяем, сколько строк займет эта запись
-        int maxRows = qMax(names.size(), qMax(vars.size(), outs.size()));
-
-        for (int r = 0; r < maxRows; ++r) {
-            table += fmt(
-                         r < names.size() ? names[r] : "",
-                         r < vars.size()  ? vars[r]  : "",
-                         r < outs.size()  ? outs[r]  : "",
-                         (r == 0) ? (v.multisource ? "true" : "false") : "",
-                         (r == 0) ? (v.retain ? "true" : "false") : "",
-                         (r == 0) ? (v.init.isEmpty() ? "-" : v.init) : ""
-                         ) + "\n";
-        }
-        // Небольшой разделитель между разными переменными для читаемости (опционально)
-        // table += QString(header.length(), '.') + "\n";
-    }
-
-    out.noquote() << (QString("\n") + table);
-    return out;
 }

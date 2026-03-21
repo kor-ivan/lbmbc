@@ -79,6 +79,8 @@ void lbconsole::implement()
     parser.addOption(lbFileNameOption);
     QCommandLineOption lbMacOption({"m","mac"},"Logic Box mac addres, cannot be selected together with --ip and --host option","00:1A:2B:3C:4D:5E");
     parser.addOption(lbMacOption);
+    QCommandLineOption lbYamlExtVar("ext","Extended output of variable analysis in YAML");
+    parser.addOption(lbYamlExtVar);
     QCommandLineOption lbTest("test","Logic Box test option","");
     parser.addOption(lbTest);
     parser.process(*app);
@@ -154,20 +156,14 @@ void lbconsole::implement()
         }
         else if (parser.positionalArguments().contains("gethosts") || parser.positionalArguments().contains("getvar")){
             lbyaml *y = new lbyaml(parser.value(lbYamlConfOption));
-            QMultiMap<QString, QString> HostMmap;
             if (parser.positionalArguments().contains("gethosts")){
-                y->getallhost(HostMmap);
-                for (auto it = HostMmap.begin(); it != HostMmap.end(); ++it) {
-                    std::cout << std::setw(12) <<std::left <<
-                        it.key().toStdString() <<
-                        it.value().toStdString()<<std::endl;
-                }
+                printlbHostMmap(y->getallhost());
             }else if (parser.positionalArguments().contains("getvar")){
-                qDebug()<<"into getvar...";
                 y->setlbhost(parser.value(lbhostOption));
-
-                y->getVarStat();
-                qDebug()<<y->getLbVarMap();
+                lbyaml::lbvarstat statstr = y->getVarStat();
+                if (parser.isSet(lbYamlExtVar))
+                    printlbVarMap(y->getLbVarMap());
+                printStatstr(statstr, *y);
             }
             delete y;
             emit lbQuit();
@@ -176,7 +172,7 @@ void lbconsole::implement()
             qDebug()<<"testing";
             lbyaml *y = new lbyaml(parser.value(lbYamlConfOption));
             QMultiMap<QString, QString> HostMmap;
-            y->getallhost(HostMmap);
+            // y->getallhost(HostMmap);
             for (auto it = HostMmap.begin(); it != HostMmap.end(); ++it) {
                 std::cout << std::setw(12) <<std::left <<
                     it.key().toStdString() <<
@@ -263,6 +259,99 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const
         url.setPort((QUrl::fromUserInput(DefaultHost)).port());
         lbc->setTCPaddr(host, QUrl::fromUserInput(DefaultHost).port());
     }
+}
+
+void lbconsole::printStatstr(const lbyaml::lbvarstat &statstr, lbyaml &yaml)
+{
+    qDebug().noquote()<<"Number of variables :"<<statstr.quantity;
+    qDebug().noquote()<<"Must Multisource :" << (statstr.mustMultisource.empty() ? "none" : statstr.mustMultisource.join(", "));
+    qDebug().noquote()<<"Handling Var :" << (statstr.handlingVar.empty() ? "none" : statstr.handlingVar.join(", "));
+    qDebug().noquote()<<"not added Forte :" << (statstr.noaddedForte.empty() ? "none" : statstr.noaddedForte.join(", "));
+    qDebug().noquote()<<"Error :" << yaml.getErr();
+}
+
+void lbconsole::printlbHostMmap(const QMultiMap<QString, QString> &lbHostMmap)
+{
+    // Настраиваем отступ для колонок (например, 20 символов)
+    int colWidth = 20;
+
+    // Формируем заголовок таблицы
+    qDebug().nospace().noquote() << "\n"
+                            << QString("Host").leftJustified(colWidth)
+                            << "| " << QString("MAC").leftJustified(colWidth) << "\n"
+                            << QString("-").repeated(colWidth * 2 + 3);
+
+    // Итерируемся по всем элементам
+    auto it = lbHostMmap.constBegin();
+    while (it != lbHostMmap.constEnd()) {
+        qDebug().nospace().noquote() << it.key().leftJustified(colWidth)
+        << "| " << it.value().leftJustified(colWidth);
+        ++it;
+    }
+}
+
+void lbconsole::printlbVarMap(const QMap<QString, lbyaml::lbvar> &lbVarMap)
+{
+    // 1. Задаем фиксированную ширину колонок
+    const int wN = 16, wV = 20, wO = 20, wM = 5, wR = 5, wI = 6;
+
+    // Формат строки (без лишних пробелов в начале/конце)
+    auto fmt = [=](const QString& a, const QString& b, const QString& c,
+                   const QString& d, const QString& e, const QString& f) {
+        return QString("%1 | %2 | %3 | %4 | %5 | %6")
+        .arg(a, -wN).arg(b, -wV).arg(c, -wO).arg(d, -wM).arg(e, -wR).arg(f, -wI);
+    };
+
+    QString table;
+    QString header = fmt("VarName", "Var", "Var_out", "Multi", "Retain", "Init");
+    table += header + "\n" + QString(header.length(), '-') + "\n";
+
+    for (auto i = lbVarMap.begin(); i != lbVarMap.end(); ++i) {
+        const auto &v = i.value();
+
+        // Разбиваем длинные списки на части
+        QStringList names = wrapText(i.key(), wN);
+        QStringList vars  = wrapText(formatList(v.var), wV);
+        QStringList outs  = wrapText(formatList(v.var_out), wO);
+
+        // Определяем, сколько строк займет эта запись
+        int maxRows = qMax(names.size(), qMax(vars.size(), outs.size()));
+
+        for (int r = 0; r < maxRows; ++r) {
+            table += fmt(
+                         r < names.size() ? names[r] : "",
+                         r < vars.size()  ? vars[r]  : "",
+                         r < outs.size()  ? outs[r]  : "",
+                         (r == 0) ? (v.multisource ? "true" : "false") : "",
+                         (r == 0) ? (v.retain ? "true" : "false") : "",
+                         (r == 0) ? (v.init.isEmpty() ? "-" : v.init) : ""
+                         ) + "\n";
+        }
+        // Небольшой разделитель между разными переменными для читаемости (опционально)
+        // table += QString(header.length(), '.') + "\n";
+    }
+
+    qDebug().noquote() << (QString("\n") + table);
+}
+
+QStringList lbconsole::wrapText(QString text, int width)
+{
+    if (text.isEmpty()) return {"-"};
+    QStringList result;
+    for (int i = 0; i < text.length(); i += width) {
+        result << text.mid(i, width).trimmed();
+    }
+    return result;
+}
+
+QString lbconsole::formatList(const QList<QStringList> &list)
+{
+    if (list.isEmpty()) return "-";
+    QStringList groups;
+    for (const auto &subList : list) {
+        groups << "(" + subList.join(",") + ")";
+    }
+    return groups.join(" ");
 }
 
 

@@ -40,6 +40,13 @@ private:
                    const QCommandLineOption &hostOption,
                    const QCommandLineOption &lbInterfaceOption);
 
+    void printStatstr(const lbyaml::lbvarstat &statstr, lbyaml &yaml);
+    void printlbHostMmap(const QMultiMap<QString, QString> &lbHostMmap);
+    void printlbVarMap(const QMap<QString, lbyaml::lbvar> &lbVarMap);
+    QStringList wrapText(QString text, int width);
+    QString formatList(const QList<QStringList> &list);
+
+
 private slots:
     void printOta(const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
     void printMessage (const QString& lbstr, const QString& message, const QModbusDevice::Error error);
