@@ -116,11 +116,13 @@ QStringList lbyaml::expandVar(const QString &key, bool *point)
 
     // 1. Ищем диапазон: буквы + число + ровно две точки + число
     // Используем \.\. чтобы явно указать две точки
-    static const QRegularExpression rangeRe(R"(^([a-zA-Z]+)(\d+)\.\.(\d+)$)");
+    // static const QRegularExpression rangeRe(R"(^([a-zA-Z]+)(\d+)\.\.(\d+)$)");
+    static const QRegularExpression rangeRe(R"(^([\w_]+?)(\d+)\.\.(\d+)$)");
 
     // 2. Ищем "вариант с точкой": буквы + число + одиночная точка
     // [^.] перед точкой гарантирует, что мы не попали на вторую точку из ".."
-    static const QRegularExpression dotRe(R"(^([a-zA-Z]+)(\d+)\.[^.])");
+    // static const QRegularExpression dotRe(R"(^([a-zA-Z]+)(\d+)\.[^.])");
+    static const QRegularExpression dotRe(R"(^([\w_]+?)(\d+)\.)");
 
     // 1. Проверяем на диапазон di0..15
     QRegularExpressionMatch rangeMatch = rangeRe.match(key);
@@ -198,6 +200,7 @@ void lbyaml::addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbV
             lbVarMap.insert(key, varstr);
         }
     }else{
+        // qDebug()<<keylist<<levellist;
         err = QString::fromStdString(node.Scalar()) + " " + level.last() + " the left and right ranges are not equal";
     }
 }
