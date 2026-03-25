@@ -148,6 +148,9 @@ void LBclient::setQueryString(const QStringList qstr)
 {
     if (!queryString.isEmpty())
         queryString.clear();
+    for (const auto &i : qstr) {
+        queryString << lbyaml::expandVar(i);
+    }
     queryString.append(qstr);
     setlbBase(queryString.at(0)[0]);
 }

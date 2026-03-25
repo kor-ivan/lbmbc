@@ -32,6 +32,7 @@ public:
     bool setTCPaddr(const QString addr, const int port, const QString iface="");
     void setlbHost(const QString host, const QString filename, const QString iface="");
     void Execute();
+    void extracted(const QStringList &qstr);
     void setQueryString(const QStringList qstr);
     void setQueryString(const std::initializer_list<QStringList> qstr_list);
     void setTimeOut(const int t);
