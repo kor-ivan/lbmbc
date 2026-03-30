@@ -148,10 +148,12 @@ void LBclient::setQueryString(const QStringList qstr)
 {
     if (!queryString.isEmpty())
         queryString.clear();
+    QStringList interqstr;
     for (const auto &i : qstr) {
-        queryString << lbyaml::expandVar(i);
+        for (const auto &j : lbyaml::expandVar(i))
+            interqstr << j;
     }
-    queryString.append(qstr);
+    queryString.append(interqstr);
     setlbBase(queryString.at(0)[0]);
 }
 
@@ -160,6 +162,11 @@ void LBclient::setQueryString(const std::initializer_list<QStringList> qstr_list
     if (!queryString.isEmpty())
         queryString.clear();
     for (const auto &qstr : qstr_list) {
+        QStringList interqstr;
+        for (const auto &i : qstr) {
+            for (const auto &j : lbyaml::expandVar(i))
+                interqstr << j;
+        }
         queryString.append(qstr);
     }
     setlbBase(queryString.at(0)[0]);
@@ -296,7 +303,7 @@ QJsonParseError LBclient::lbParseJson(const QByteArray &lbJsonStr, QJsonObject &
     docRead = docRead.fromJson(lbJsonStr, &errJson);
     if (errJson.error == QJsonParseError::NoError){
         QJsonObject jObj = docRead.object();
-        QStringList keys = jObj.keys();
+        const QStringList keys = jObj.keys();
         if (!keys.empty() && keys.size()==1){
             MulpipleRequest = false;
             if (keys.at(0)==KeyGet || keys.at(0)==KeyStats || keys.at(0)==KeySet)
