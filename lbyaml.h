@@ -38,6 +38,7 @@ public:
 
     QMap<QString, lbvar> getLbVarMap() const;
     static QStringList expandVar(const QString &key, bool *point = nullptr);
+    static bool isValidMacAddress(const QString &mac);
 private:
     static YAML::Node JsonToYaml(QJsonObject qjo, int level=0);
     QJsonObject YamlToJson(const YAML::Node &fnode, QString host);
@@ -52,7 +53,7 @@ private:
     void getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node& node, const QStringList level = QStringList());
 
     void addlbVar_isMap(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap);
-    void addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList));
+    void addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList), int size = 1);
     void addlbVar_isSequence(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList));
     static void addVar(lbvar &lbvar, QStringList level);
     static void addVar_out(lbvar &lbvar, QStringList level);

@@ -91,10 +91,31 @@ void lbyaml::getvar(QMap<QString, lbvar> &lbVarMap, const YAML::Node &node, cons
                 addlbVar_isMap(i.second, lbVarMap);
             // if not var:
             else if (i.second.IsScalar()){
-                if (i.first.Scalar() == "var")
-                    addlbVar_isScalar(i.second, lbVarMap, level, addVar);
-                if (i.first.Scalar() == "var_out")
-                    addlbVar_isScalar(i.second, lbVarMap, level, addVar_out);
+                if (node["type"]){
+                    QString var_type = QString::fromStdString(node["type"].Scalar());
+                    if (var_type.compare("dword", Qt::CaseInsensitive) == 0 ||
+                        var_type.compare("real", Qt::CaseInsensitive) == 0 ||
+                        var_type.compare("dint", Qt::CaseInsensitive) == 0 ||
+                        var_type.compare("udint", Qt::CaseInsensitive) == 0){
+                        if (i.first.Scalar() == "var")
+                            addlbVar_isScalar(i.second, lbVarMap, level, addVar, 2);
+                        if (i.first.Scalar() == "var_out")
+                            addlbVar_isScalar(i.second, lbVarMap, level, addVar_out, 2);
+                    }else if (var_type.compare("lword", Qt::CaseInsensitive) == 0 ||
+                               var_type.compare("lint", Qt::CaseInsensitive) == 0 ||
+                               var_type.compare("ulint", Qt::CaseInsensitive) == 0 ||
+                               var_type.compare("lreal", Qt::CaseInsensitive) == 0){
+                        if (i.first.Scalar() == "var")
+                            addlbVar_isScalar(i.second, lbVarMap, level, addVar, 4);
+                        if (i.first.Scalar() == "var_out")
+                            addlbVar_isScalar(i.second, lbVarMap, level, addVar_out, 4);
+                    }
+                }else{
+                    if (i.first.Scalar() == "var")
+                        addlbVar_isScalar(i.second, lbVarMap, level, addVar);
+                    if (i.first.Scalar() == "var_out")
+                        addlbVar_isScalar(i.second, lbVarMap, level, addVar_out);
+                }
             }
             else if (i.second.IsSequence()){
                 if (i.first.Scalar() == "var")
@@ -157,6 +178,19 @@ QStringList lbyaml::expandVar(const QString &key, bool *point)
     return result;
 }
 
+bool lbyaml::isValidMacAddress(const QString &mac)
+{
+    // Регулярное выражение:
+    // ^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$  -> Формат AA:BB:CC:DD:EE:FF или AA-BB...
+    // |                                          -> ИЛИ
+    // ^([0-9A-Fa-f]{12})$                        -> Формат AABBCCDDEEFF
+    static const QRegularExpression macRegex(
+        "^(([0-9A-Fa-f]{2}[:]){5}([0-9A-Fa-f]{2})|([0-9A-Fa-f]{12}))$"
+        );
+
+    return macRegex.match(mac).hasMatch();
+}
+
 void lbyaml::addlbVar_isMap(const YAML::Node &node, QMap<QString, lbvar> &lbVarMap)
 {
     QStringList keylist;
@@ -181,13 +215,27 @@ void lbyaml::addlbVar_isMap(const YAML::Node &node, QMap<QString, lbvar> &lbVarM
     }
 }
 
-void lbyaml::addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList))
+
+void lbyaml::addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList), int size)
 {
     bool point = false;
     QStringList keylist = expandVar(QString::fromStdString(node.Scalar()), &point);
     QStringList levellist;
-    if (!point)
-        levellist = expandVar(level.last());
+    if (!point){
+        if (size == 2){
+            QStringList inll = expandVar(level.last());
+            for (int i = 0; i < inll.size(); i += 2) {
+                levellist << inll[i] + ".." + inll[i + 1];
+            }
+        }else if (size == 4){
+            QStringList inll = expandVar(level.last());
+            for (int i = 0; i < inll.size(); i += 4) {
+                levellist << inll[i] + ".." + inll[i + 3];
+            }
+        }
+        else
+            levellist = expandVar(level.last());
+    }
     else
         levellist << level.last();
     if (keylist.size()==levellist.size()){
@@ -203,7 +251,7 @@ void lbyaml::addlbVar_isScalar(const YAML::Node& node, QMap<QString, lbvar> &lbV
             lbVarMap.insert(key, varstr);
         }
     }else{
-        qDebug()<<keylist<<levellist;
+        // qDebug()<<"%err%"<<keylist<<levellist;
         err = QString::fromStdString(node.Scalar()) + " " + level.last() + " the left and right ranges are not equal";
     }
 }
@@ -307,6 +355,10 @@ YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level)
 
 QString lbyaml::MacToIPv6(QString mac)
 {
+    if (!isValidMacAddress(mac)){
+        qDebug()<<"MAC address is not valid";
+        return QString();
+    }
     QList<QString> qmac;
     // todo check for format MAC
     mac.remove(":");
