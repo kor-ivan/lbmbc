@@ -121,10 +121,11 @@ void lbconsole::implement()
         }else if(parser.positionalArguments().contains("mactoip")){
             if (parser.isSet(lbMacOption))
                 qDebug().noquote()<<lbyaml::MacToIPv6(parser.value(lbMacOption));
-            if (parser.isSet(lbhostOption)){
+            else if (parser.isSet(lbhostOption)){
                 lbyaml *y = new lbyaml(parser.value(lbYamlConfOption));
                 y->setlbhost(parser.value(lbhostOption));
                 qDebug().noquote()<<y->getIPv6fromYaml();
+                delete y;
             }
             else
                 qDebug().noquote()<<"MAC option is not selected";

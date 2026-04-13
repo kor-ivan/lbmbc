@@ -238,7 +238,6 @@ QString LBclient::getlbKey()
 
 void LBclient::isConnected(QModbusDevice::State)
 {
-    qDebug()<<lbDevice->state();
     switch (lbDevice->state()) {
     case QModbusDevice::ConnectedState:
         Run();
