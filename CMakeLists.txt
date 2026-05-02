@@ -23,7 +23,7 @@ set(GIT_COMMIT_HASH ${GIT_COMMIT_HASH} CACHE INTERNAL "Current git commit hash")
 
 # 3. Генерируем итоговый version.h из шаблона version.h.in
 configure_file(
-    ${CMAKE_SOURCE_DIR}/version.h.in
+    ${CMAKE_CURRENT_SOURCE_DIR}/version.h.in
     ${CMAKE_CURRENT_BINARY_DIR}/version.h
     @ONLY
 )
