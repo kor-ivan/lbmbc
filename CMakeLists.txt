@@ -45,14 +45,23 @@ if (UNIX AND NOT APPLE)
     )
 endif()
 
+# --- 3. Поиск зависимостей ---
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core)
-find_package(Qt6 REQUIRED COMPONENTS SerialBus)
-find_package(Qt6 REQUIRED COMPONENTS Network)
-find_package(Qt6 REQUIRED COMPONENTS Concurrent)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network SerialBus Concurrent)
 
-add_executable(lbmbc
-  main.cpp
+# Внешняя зависимость yaml-cpp
+include(FetchContent)
+
+FetchContent_Declare(
+  yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+  GIT_TAG master # Can be a tag (yaml-cpp-x.x.x), a commit hash, or a branch name (master)
+)
+FetchContent_MakeAvailable(yaml-cpp)
+
+# --- 4. Создание БИБЛИОТЕКИ (lbmbc_lib) ---
+# Теперь вся логика здесь
+add_library(lbmbc_lib SHARED
   mbclient.h mbclient.cpp
   lbclient.h lbclient.cpp
   lbmodbusclient.h lbmodbusclient.cpp
@@ -63,37 +72,72 @@ add_executable(lbmbc
   lbconsole.h lbconsole.cpp
   lbprocess.h lbprocess.cpp
   version.h.in
-
 )
 
-# Указываем компилятору, где искать сгенерированный version.h
-target_include_directories(lbmbc PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-
-include(FetchContent)
-
-FetchContent_Declare(
-  yaml-cpp
-  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG master # Can be a tag (yaml-cpp-x.x.x), a commit hash, or a branch name (master)
+set_target_properties(lbmbc_lib PROPERTIES
+    OUTPUT_NAME "lbmbc"   # Имя файла будет lbmbc.dll
+    PREFIX "lib"          # Явно добавляем lib в начало (будет liblbmbc.dll)
 )
-FetchContent_MakeAvailable(yaml-cpp)
 
-target_link_libraries(lbmbc
+# Это сработает на Windows и будет проигнорировано на Linux
+set_target_properties(lbmbc_lib PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
+# Пробрасываем пути к заголовкам (включая сгенерированный version.h)
+target_include_directories(lbmbc_lib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_BINARY_DIR}
+)
+
+
+# Линкуем зависимости к БИБЛИОТЕКЕ как PUBLIC.
+# Это заставит lbcfg видеть Qt и yaml-cpp автоматически.
+target_link_libraries(lbmbc_lib PUBLIC
     Qt${QT_VERSION_MAJOR}::Core
-    Qt6::SerialBus
+    Qt${QT_VERSION_MAJOR}::Network
+    Qt${QT_VERSION_MAJOR}::SerialBus
+    Qt${QT_VERSION_MAJOR}::Concurrent
     yaml-cpp::yaml-cpp
-    Qt6::Concurrent
 )
 
-# if(WIN32)
-#     target_link_libraries(discover
-#         wsock32
-#         ws2_32
-#         iphlpapi)
-# endif()
+# # --- 5. Создание ИСПОЛНЯЕМОГО ФАЙЛА (lbmbc) ---
+# add_executable(lbmbc main.cpp)
 
+# # Он просто использует нашу библиотеку
+# target_link_libraries(lbmbc PRIVATE lbmbc_lib)
+
+# # --- 6. Инсталляция ---
+# include(GNUInstallDirs)
+# install(TARGETS lbmbc lbmbc_lib
+#     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+# )
+
+
+
+# --- 5. Создание ИСПОЛНЯЕМОГО ФАЙЛА (lbmbc) ---
+# Собираем exe только если проект запущен как главный, а не как подмодуль
+if(PROJECT_IS_TOP_LEVEL)
+    add_executable(lbmbc main.cpp)
+    target_link_libraries(lbmbc PRIVATE lbmbc_lib)
+
+    message(STATUS "lbmbc is TOP LEVEL project: building executable")
+else()
+    message(STATUS "lbmbc is a dependency: skipping executable")
+endif()
+
+# --- 6. Инсталляция ---
 include(GNUInstallDirs)
-install(TARGETS lbmbc
+
+# Инсталлируем библиотеку всегда
+install(TARGETS lbmbc_lib
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+
+# Инсталлируем exe только если он был создан
+if(PROJECT_IS_TOP_LEVEL)
+    install(TARGETS lbmbc
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
