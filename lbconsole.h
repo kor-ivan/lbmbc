@@ -6,8 +6,9 @@
 // #include <QModbusDevice>
 #include <QCommandLineParser>
 #include "lbclient.h"
+#include "lbmbc_global.h"
 
-class lbconsole : public QObject
+class LBMBC_EXPORT lbconsole : public QObject
 {
     Q_OBJECT
 public:
