@@ -12,10 +12,11 @@
 #include <QTimer>
 #include "lbyaml.h"
 #include <QFile>
+#include "lbmbc_global.h"
 
 
 
-class LBclient : public QObject
+class LBMBC_EXPORT LBclient : public QObject
 {
 
     Q_OBJECT

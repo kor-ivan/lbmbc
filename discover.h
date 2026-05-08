@@ -6,8 +6,9 @@
 // #include <QCoreApplication>
 #include "icmp6scanner.h"
 #include "lbclient.h"
+#include "lbmbc_global.h"
 
-class discover : public QObject
+class LBMBC_EXPORT discover : public QObject
 {
     Q_OBJECT
 public:
@@ -26,7 +27,7 @@ public:
         bool btn = false;
     };
 
-    friend QDebug operator<<(QDebug out, const discover::lbinfo& inf);
+    friend LBMBC_EXPORT QDebug operator<<(QDebug out, const discover::lbinfo& inf);
 
     int getWaitingTime() const;
     void setWaitingTime(int newWaitingTime);

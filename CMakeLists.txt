@@ -72,7 +72,11 @@ add_library(lbmbc_lib SHARED
   lbconsole.h lbconsole.cpp
   lbprocess.h lbprocess.cpp
   version.h.in
+  lbmbc_global.h
 )
+
+# Эта строка автоматически добавит #define LBMBC_LIBRARY при компиляции библиотеки
+target_compile_definitions(lbmbc_lib PRIVATE LBMBC_LIBRARY)
 
 set_target_properties(lbmbc_lib PROPERTIES
     OUTPUT_NAME "lbmbc"   # Имя файла будет lbmbc.dll
@@ -80,7 +84,7 @@ set_target_properties(lbmbc_lib PROPERTIES
 )
 
 # Это сработает на Windows и будет проигнорировано на Linux
-set_target_properties(lbmbc_lib PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+# set_target_properties(lbmbc_lib PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 # Пробрасываем пути к заголовкам (включая сгенерированный version.h)
 target_include_directories(lbmbc_lib PUBLIC

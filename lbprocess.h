@@ -3,8 +3,9 @@
 
 #include <QObject>
 #include "lbclient.h"
+#include "lbmbc_global.h"
 
-class lbprocess : public QObject
+class LBMBC_EXPORT lbprocess : public QObject
 {
     Q_OBJECT
 public:
@@ -30,7 +31,7 @@ public:
         reboot
     };
 
-    friend QDebug operator<<(QDebug out, const lbprocess::scaninfo& inf);
+    friend LBMBC_EXPORT QDebug operator<<(QDebug out, const lbprocess::scaninfo& inf);
 
     void setOtaPath(const QString &newOtaPath);
 

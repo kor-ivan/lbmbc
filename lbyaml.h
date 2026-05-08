@@ -4,8 +4,9 @@
 #include <QString>
 #include <yaml-cpp/yaml.h>
 #include <QJsonObject>
+#include "lbmbc_global.h"
 
-class lbyaml
+class LBMBC_EXPORT lbyaml
 {
 public:
     explicit lbyaml(QString filename);
