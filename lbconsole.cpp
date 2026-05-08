@@ -155,8 +155,14 @@ void lbconsole::implement()
                 //     qDebug().noquote()<<"File option is not selected";
                 //     emit lbQuit();
                 // }
-            }else if (parser.positionalArguments().contains("scan"))
-                lbproc->run(lbprocess::scan, parser.positionalArguments().value(1, "sys.version"));
+            }else if (parser.positionalArguments().contains("scan")){
+                if (parser.positionalArguments().size()>1){
+                    QStringList vstr = parser.positionalArguments();
+                    vstr.removeFirst();
+                    lbproc->run(lbprocess::scan, vstr);
+                }else
+                    lbproc->run(lbprocess::scan);
+            }
             else if (parser.positionalArguments().contains("restartall"))
                 lbproc->run(lbprocess::restartall);   
         }

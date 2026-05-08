@@ -8,7 +8,7 @@ lbprocess::lbprocess(QObject *parent, LBclient *lbc)
     plbc->setLbConn(LBclient::MaintainTCP);
 }
 
-void lbprocess::run(processMode m, const QString var)
+void lbprocess::run(processMode m, const QStringList var)
 {
     mode = m;
     scanVar = var;
@@ -161,6 +161,8 @@ void lbprocess::localExeCompl(const QString &lbhost, const QStringList &result, 
                 inf = i_lbscanMap.value();
                 inf.devtype = result.at(0);
                 inf.version = result.at(1);
+                for (int i=2;i<scanVar.size()+2;++i)
+                    inf.data << result.at(i);
                 lbscanMap.insert(i_lbscanMap.key(), inf);
             }
             i_lbscanMap++;
@@ -185,7 +187,7 @@ void lbprocess::localExeCompl(const QString &lbhost, const QStringList &result, 
                         if (nextOtaSlot()){
                             plbc->Execute();
                         }else{
-                            qDebug()<<"preparationOtaCompl into localExeCompl";
+                            // qDebug()<<"preparationOtaCompl into localExeCompl";
                             preparationOtaCompl();
                         }
                     }
@@ -228,8 +230,12 @@ void lbprocess::localFinish(const QString &message, const QModbusDevice::Error e
         case logBustab:
             if (error == QModbusDevice::NoError){
                 i_lbscanMap = lbscanMap.begin();
-                QString s;
-                plbc->setQueryString({"get", "sys.devtype", scanVar});
+                QStringList ss = {"get", "sys.devtype", "sys.version"};
+                if (!scanVar.empty()){
+                    for (const auto &i : scanVar)
+                        ss<<i;
+                }
+                plbc->setQueryString(ss);
                 if (i_lbscanMap.key()!=-1)
                     plbc->setSlot(i_lbscanMap.key());
                 phase = getSysvar;
@@ -248,7 +254,7 @@ void lbprocess::localFinish(const QString &message, const QModbusDevice::Error e
                 if (preparationOta())
                     plbc->Execute();
             }else{
-                qDebug()<<"preparationOtaCompl into localFinish";
+                // qDebug()<<"preparationOtaCompl into localFinish";
                 preparationOtaCompl();
             }
         default:
@@ -257,7 +263,11 @@ void lbprocess::localFinish(const QString &message, const QModbusDevice::Error e
 }
 
 QDebug operator<<(QDebug out, const lbprocess::scaninfo& inf){
-    out.noquote()<<inf.devtype<<" "<<discover::addColonsToMac(inf.mac)<<" "<<inf.version<<" "<<((inf.master)?"BM":"");
+    out.noquote()<<inf.devtype<<" "<<discover::addColonsToMac(inf.mac)<<" "<<inf.version;
+    for (const auto &i : inf.data) {
+        out.noquote()<<i;
+    }
+    out.noquote()<<" "<<((inf.master)?"BM":"");
     return out;
 }
 

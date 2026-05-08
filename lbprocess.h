@@ -15,11 +15,12 @@ public:
         restartall
     };
     explicit lbprocess(QObject *parent = nullptr, LBclient *lbc = nullptr);
-    void run(processMode m = scan, const QString var = "sys.version");
+    void run(processMode m = scan, const QStringList var = {});
     struct scaninfo{
         QString devtype = "unknown";
         QString mac = "unknown";
         QString version = "unknown";
+        QStringList data;
         bool master = false;
     };
 
@@ -57,7 +58,7 @@ private:
     inline bool nextOtaSlot();
     int numOfVarRetries = 3;
     int cRetries = 0;
-    QString scanVar;
+    QStringList scanVar;
 
 
 
