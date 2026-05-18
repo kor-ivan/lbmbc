@@ -28,6 +28,13 @@ void lbyaml::printlbconf(const QJsonObject &kqbo)
     std::cout<<JsonToYaml(kqbo)<<std::endl;
 }
 
+QString lbyaml::getlbconf(const QJsonObject &kqbo)
+{
+    std::stringstream ss;
+    ss << JsonToYaml(kqbo);
+    return QString::fromStdString(ss.str());
+}
+
 QJsonObject lbyaml::YamlToJson(const YAML::Node &fnode, QString host)
 {
     YAML::Node node(fnode[host]);
