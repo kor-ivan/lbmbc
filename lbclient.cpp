@@ -253,6 +253,8 @@ void LBclient::isConnected(QModbusDevice::State)
 void LBclient::SendRequest()
 {
     if (lbDevice->state() == QModbusDevice::ConnectedState){
+        if (lbReply)
+            lbReply->deleteLater();
         // printRequestDiag(*lbRequestIterator);
         lbReply = lbDevice->sendRawRequest(*lbRequestIterator,lbAddr);
         ++lbRequestIterator;
@@ -262,6 +264,8 @@ void LBclient::SendRequest()
 
 void LBclient::Stoping()
 {
+    if (lbReply)
+        lbReply->deleteLater();
     emit lbDisconnect(lbhost, lbDevice->errorString(), lbDevice->error());
 }
 
@@ -497,6 +501,7 @@ void LBclient::isRequestFinish()
                     emit ExecuteCompleted(lbhost, QStringList{QString::number(nw), percent, lbFbootUnitStr}, lbDevice->errorString(), lbDevice->error());
                     // qDebug()<<lbVectorRequest.size()<<" "<<lbRequestIterator-lbVectorRequest.begin();
                 }
+                lbReply->deleteLater();
                 SendRequest();
             }else if (!islbRespondMore(lbReply)){
                 switch (lbType.alg) {
@@ -559,6 +564,7 @@ void LBclient::isRequestFinish()
                 lbDevice->disconnectDevice();
         }
     }
+    // this->dumpObjectTree();
 }
 
 void LBclient::isTimeout()
@@ -751,6 +757,7 @@ qsizetype LBclient::insertTaglbArr(QByteArray& arr, qsizetype pos, Tag tag, cons
 
 void LBclient::SendAfterRequest(Tag tag)
 {
+    lbReply->deleteLater();
     QByteArray lbArr(252,(char)0x00);
     qsizetype pos = 0;
     if (!lbType.slot.isEmpty())
