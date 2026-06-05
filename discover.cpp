@@ -189,8 +189,23 @@ QDebug operator<<(QDebug out, const discover::lbinfo& inf){
     out.noquote()<<inf.name<<" "<<inf.type<<" "<<inf.mac<<" "<<inf.ipv4;
     foreach (const auto i, inf.ifindex) {
         out<<"IF ="<<i;
-    }    foreach (const auto i, inf.delay) {
+    }
+    foreach (const auto i, inf.delay) {
         out<<"delay ="<<i<<"ms";
     }
     return out;
+}
+
+QString discover::lbinfo::toString() const
+{
+    QString str;
+    if (btn) str.append("*");
+    str += QString("%1 %2 %3 %4 ").arg(name).arg(type).arg(mac).arg(ipv4);
+    QStringList ifindexStr;
+    for (int i : ifindex) ifindexStr << "IF =" << QString::number(i);
+    str += ifindexStr.join(" ") + " ";
+    QStringList delayStr;
+    for (float d : delay) delayStr<<"delay ="<<QString::number(d)<<"ms";
+    str += delayStr.join(" ");
+    return str;
 }

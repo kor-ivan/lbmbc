@@ -25,6 +25,7 @@ public:
         QList<float> delay;
         QList<int> ifindex;
         bool btn = false;
+        QString LBMBC_EXPORT toString() const;
     };
 
     friend LBMBC_EXPORT QDebug operator<<(QDebug out, const discover::lbinfo& inf);
