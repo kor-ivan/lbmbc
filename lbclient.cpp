@@ -913,14 +913,13 @@ bool LBclient::islbRespondMore(const QModbusReply *reply)
     case update:
         break;
     case cmds:
-        if (lbKey==KeyFsformat){
-            lbDevice->setDeviceError(lbFsformatCompletedStr, QModbusDevice::NoError);
-            lbDevice->setEnablePassTimeOut(false);
-            return false;
-        }
         lbResponseSHA = getlbSHA(lbReply->rawResult());
         if (len<=MaxLenUpdate){
             lbResponseBuffer = lbReply->rawResult().data().sliced(3 + lbModbusClient::lbLenSHA, len - lbModbusClient::lbLenSHA - 1);
+            if (lbKey==KeyFsformat){
+                lbDevice->setDeviceError(lbFsformatCompletedStr, QModbusDevice::NoError);
+                lbDevice->setEnablePassTimeOut(false);
+            }
             return false;
         }else{
             lbResponseBuffer += lbReply->rawResult().data().remove(0,3 + lbModbusClient::lbLenSHA);
