@@ -9,7 +9,11 @@
 class LBMBC_EXPORT lbyaml
 {
 public:
-    explicit lbyaml(QString filename);
+    enum YamlMode{
+        file,
+        data
+    };
+    explicit lbyaml(QString filename, YamlMode mode = file);
     QByteArray getlbJson();
     static void printlbconf(const QJsonObject &kqbo);
     static QString getlbconf(const QJsonObject &kqbo);
@@ -35,6 +39,11 @@ public:
         QStringList handlingVar;
         QStringList noaddedForte;
     };
+    struct lbhost{
+        QString mac;
+        int line;
+    };
+    QMultiMap<QString, lbhost> getallhostline();
 
     lbvarstat getVarStat();
 

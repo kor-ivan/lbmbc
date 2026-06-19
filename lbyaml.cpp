@@ -6,10 +6,19 @@
 
 const QString lbyaml::NoError = "No error";
 
-lbyaml::lbyaml(QString filename)
+lbyaml::lbyaml(QString filename, YamlMode mode)
 {
     try {
-        config = YAML::LoadFile(filename.toStdString());
+        switch (mode) {
+        case file:
+            config = YAML::LoadFile(filename.toStdString());
+            break;
+        case data:
+            config = YAML::Load(filename.toStdString());
+            break;
+        default:
+            break;
+        }
         err = NoError;
     } catch(const YAML::ParserException& e) {
         err = e.what();
@@ -300,12 +309,29 @@ QString lbyaml::getErr() const
 
 QMultiMap<QString, QString> lbyaml::getallhost()
 {
+    lbHostMmap.clear();
     QString h;
     foreach (auto i, config) {
         h = QString::fromStdString(i.first.Scalar());
         lbHostMmap.insert(h, find(i.second, "macaddr"));
     }
     return lbHostMmap;
+}
+
+QMultiMap<QString, lbyaml::lbhost> lbyaml::getallhostline()
+{
+    QMultiMap<QString, lbhost> mmap;
+    lbhost inf;
+    QString h;
+    foreach (auto i, config) {
+        h = QString::fromStdString(i.first.Scalar());
+        inf.mac = find(i.second, "macaddr");
+        lbHostMmap.insert(h, inf.mac);
+        YAML::Mark mark = i.first.Mark();
+        inf.line = mark.line;
+        mmap.insert(h, inf);
+    }
+    return mmap;
 }
 
 lbyaml::lbvarstat lbyaml::getVarStat()
