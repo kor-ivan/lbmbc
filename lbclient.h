@@ -108,6 +108,7 @@ private:
     const qsizetype MaxLenStart = 246;
     const qsizetype MaxLenUpdate = 250;
     const qsizetype MaxLenSlot = 216;
+    const qsizetype MaxLenLog = 0xF7;
     // const qsizetype MaxLenOtaSlot = 249;
     // const qsizetype MaxLenOtaWriteSlot = 244;
     static const QModbusDevice::Error lbSHAError;
@@ -202,6 +203,7 @@ private:
     QString nwToPercentStr (int nw, qint64 size);
     int nw = 0;
     QString percent = "";
+    QString logstr;
 
     inline void insertQuint32 (QByteArray &qba, qsizetype pos, qsizetype data);
 };

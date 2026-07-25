@@ -1013,9 +1013,15 @@ bool LBclient::islbRespondMore(const QModbusReply *reply)
             SendAfterRequest(logmore);
             return true;
         }else{
-            QString logstr = devmsg.removeFirst().removeLast().removeLast().trimmed();
-            emit ExecuteCompletedStr(logstr,lbDevice->errorString(), lbDevice->error());
-            emit ExecuteCompleted(lbhost, QStringList{logstr},lbDevice->errorString(), lbDevice->error());
+            QString m_logstr = devmsg.removeFirst().removeLast().removeLast().trimmed();
+            if (len < MaxLenLog){
+                logstr += m_logstr;
+                emit ExecuteCompletedStr(logstr,lbDevice->errorString(), lbDevice->error());
+                emit ExecuteCompleted(lbhost, QStringList{logstr},lbDevice->errorString(), lbDevice->error());
+                if (!logstr.isEmpty())logstr.clear();
+            }else{
+                logstr += m_logstr;
+            }
             lblogfd = reply->rawResult().data().at(3);
             SendAfterRequest(logmore);
             return true;
