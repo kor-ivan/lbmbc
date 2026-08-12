@@ -6,17 +6,23 @@
 #include <QJsonObject>
 #include "lbmbc_global.h"
 
-class LBMBC_EXPORT lbyaml
+class LBMBC_EXPORT lbyaml : public QObject
 {
+    Q_OBJECT
 public:
     enum YamlMode{
         file,
         data
     };
+    enum outputFormat{
+        raw,
+        retainY
+    };
+
     explicit lbyaml(QString filename, YamlMode mode = file);
     QByteArray getlbJson();
     static void printlbconf(const QJsonObject &kqbo);
-    static QString getlbconf(const QJsonObject &kqbo);
+    static QString getlbconf(const QJsonObject &kqbo, outputFormat f = raw);
     static QString MacToIPv6(QString mac);
     QString getlbmac(const QJsonObject &kqbo);
     QString getIPv6fromYaml();
@@ -68,6 +74,7 @@ private:
     void addlbVar_isSequence(const YAML::Node& node, QMap<QString, lbvar> &lbVarMap, const QStringList &level, void (*pf)(lbvar&, QStringList));
     static void addVar(lbvar &lbvar, QStringList level);
     static void addVar_out(lbvar &lbvar, QStringList level);
+    static void cleanRetain(QJsonObject &kqbo);
 };
 
 

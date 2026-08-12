@@ -37,10 +37,13 @@ void lbyaml::printlbconf(const QJsonObject &kqbo)
     std::cout<<JsonToYaml(kqbo)<<std::endl;
 }
 
-QString lbyaml::getlbconf(const QJsonObject &kqbo)
+QString lbyaml::getlbconf(const QJsonObject &kqbo, outputFormat f)
 {
+    QJsonObject mutableKqbo = kqbo;
+    if (f == retainY)
+        cleanRetain(mutableKqbo);
     std::stringstream ss;
-    ss << JsonToYaml(kqbo);
+    ss << JsonToYaml(mutableKqbo);
     return QString::fromStdString(ss.str());
 }
 
@@ -297,6 +300,33 @@ void lbyaml::addVar(lbvar &lbvar, QStringList level)
 void lbyaml::addVar_out(lbvar &lbvar, QStringList level)
 {
     lbvar.var_out.append(level);
+}
+
+void lbyaml::cleanRetain(QJsonObject &kqbo)
+{
+    auto ikqbo = kqbo.find("var");
+    if (ikqbo != kqbo.end() && ikqbo.value().isObject()) {
+        QJsonObject varObj = ikqbo.value().toObject();
+        bool modified = false;
+
+        for (auto it = varObj.begin(); it != varObj.end(); ++it) {
+            if (it.value().isObject()) {
+                QJsonObject subObj = it.value().toObject();
+                auto retainIt = subObj.find("retain");
+                if (retainIt != subObj.end() && retainIt.value().isArray()) {
+                    QJsonArray retainArray = retainIt.value().toArray();
+                    if (retainArray.size() == 1) {
+                        subObj["retain"] = "y";
+                        *it = subObj;
+                        modified = true;
+                    }
+                }
+            }
+        }
+        if (modified) {
+            kqbo["var"] = varObj;
+        }
+    }
 }
 
 
