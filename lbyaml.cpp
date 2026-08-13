@@ -6,7 +6,8 @@
 
 const QString lbyaml::NoError = "No error";
 
-lbyaml::lbyaml(QString filename, YamlMode mode)
+lbyaml::lbyaml(QString filename, YamlMode mode, QObject *parent) :
+    QObject(parent)
 {
     try {
         switch (mode) {
@@ -76,6 +77,31 @@ QJsonObject lbyaml::YamlToJson(const YAML::Node &fnode, QString host)
         }
     }
     return qjo;
+}
+
+void lbyaml::setConfig(const QString filename, YamlMode mode)
+{
+    try {
+        switch (mode) {
+        case file:
+            config = YAML::LoadFile(filename.toStdString());
+            break;
+        case data:
+            config = YAML::Load(filename.toStdString());
+            break;
+        default:
+            break;
+        }
+        err = NoError;
+    } catch(const YAML::ParserException& e) {
+        err = e.what();
+        qDebug() << "Error parsing YAML: " << err;
+    }
+}
+
+QString lbyaml::getlbhost() const
+{
+    return host;
 }
 
 QMap<QString, lbyaml::lbvar> lbyaml::getLbVarMap() const
@@ -208,6 +234,71 @@ bool lbyaml::isValidMacAddress(const QString &mac)
         );
 
     return macRegex.match(mac).hasMatch();
+}
+
+void lbyaml::implementLbVarMap(const QMap<QString, lbvar> &updatedMap)
+{
+    if (!config || !config[host])
+        err = "Host node is missing or configuration is empty";
+
+    YAML::Node hostNode = config[host];
+
+    for (auto it = updatedMap.begin(); it != updatedMap.end(); ++it) {
+        std::string varName = it.key().toStdString();
+        const lbyaml::lbvar &updatedVar = it.value();
+
+        // Проверяем, должна ли переменная вообще существовать в YAML
+        bool hasAnyOptions = updatedVar.multisource || updatedVar.retain || !updatedVar.init.isEmpty();
+
+        if (hasAnyOptions) {
+            // Если секции "var" нет на хосте, создаем её как карту (Map)
+            if (!hostNode["var"]) {
+                hostNode["var"] = YAML::Node(YAML::NodeType::Map);
+            }
+
+            // Получаем узел переменной (если её не было, yaml-cpp создаст её автоматически)
+            YAML::Node varNode = hostNode["var"][varName];
+
+            // 1. Записываем или удаляем Multisource
+            if (updatedVar.multisource) {
+                varNode["multisource"] = "y";
+            } else if (varNode["multisource"]) {
+                varNode.remove("multisource");
+            }
+
+            // 2. Записываем или удаляем Retain
+            if (updatedVar.retain) {
+                varNode["retain"] = "y";
+            } else if (varNode["retain"]) {
+                varNode.remove("retain");
+            }
+
+            // 3. Записываем или удаляем Init
+            if (!updatedVar.init.isEmpty()) {
+                varNode["init"] = updatedVar.init.toStdString();
+            } else if (varNode["init"]) {
+                varNode.remove("init");
+            }
+
+        } else {
+            // Если у переменной нет ни одного параметра — удаляем её из секции "var"
+            if (hostNode["var"] && hostNode["var"][varName]) {
+                hostNode["var"].remove(varName);
+            }
+        }
+    }
+
+    // Защита от пустой секции: если после удаления переменных секция "var" опустела,
+    // полностью стираем её, чтобы в YAML не оставалось висящего пустого ключа "var:"
+    if (hostNode["var"] && hostNode["var"].size() == 0) {
+        hostNode.remove("var");
+    }
+}
+
+QString lbyaml::getFormattedYaml(outputFormat f)
+{
+    QJsonObject currentJson = YamlToJson(config, host);
+    return lbyaml::getlbconf(currentJson, f);
 }
 
 void lbyaml::addlbVar_isMap(const YAML::Node &node, QMap<QString, lbvar> &lbVarMap)
@@ -366,6 +457,8 @@ QMultiMap<QString, lbyaml::lbhost> lbyaml::getallhostline()
 
 lbyaml::lbvarstat lbyaml::getVarStat()
 {
+    if (!lbVarMap.isEmpty())
+        lbVarMap.clear();
     getvar(lbVarMap, config[host]);
     lbvarstat statstr;
     statstr.quantity = lbVarMap.size();

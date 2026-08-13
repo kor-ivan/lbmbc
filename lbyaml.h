@@ -19,7 +19,7 @@ public:
         retainY
     };
 
-    explicit lbyaml(QString filename, YamlMode mode = file);
+    explicit lbyaml(const QString filename, YamlMode mode = file, QObject *parent = nullptr);
     QByteArray getlbJson();
     static void printlbconf(const QJsonObject &kqbo);
     static QString getlbconf(const QJsonObject &kqbo, outputFormat f = raw);
@@ -27,6 +27,7 @@ public:
     QString getlbmac(const QJsonObject &kqbo);
     QString getIPv6fromYaml();
     void setlbhost(QString h);
+    QString getlbhost() const;
     static const QString NoError;
     QString getErr() const;
 
@@ -56,6 +57,11 @@ public:
     QMap<QString, lbvar> getLbVarMap() const;
     static QStringList expandVar(const QString &key, bool *point = nullptr);
     static bool isValidMacAddress(const QString &mac);
+    void implementLbVarMap(const QMap<QString, lbyaml::lbvar> &updatedMap);
+    QString getFormattedYaml(outputFormat f = raw);
+
+    void setConfig(const QString filename, YamlMode mode = file);
+
 private:
     static YAML::Node JsonToYaml(QJsonObject qjo, int level=0);
     QJsonObject YamlToJson(const YAML::Node &fnode, QString host);

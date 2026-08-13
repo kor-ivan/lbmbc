@@ -15,6 +15,7 @@ public:
     explicit lbconsole(QCoreApplication *a = nullptr);
     virtual ~lbconsole();
     void implement();
+
 signals:
     void lbQuit();
 
