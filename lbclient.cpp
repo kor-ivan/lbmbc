@@ -130,6 +130,7 @@ void LBclient::Execute()
         i = 0;
     }
     createlbRequest(getJsonStr(queryString));
+    old_queryString = queryString;
     if (lbDevice->error() == QModbusDevice::NoError){
         if (lbDevice->state() == QModbusDevice::ConnectedState){
             // lbDevice->setDeviceError("", QModbusDevice::NoError);
@@ -175,12 +176,17 @@ void LBclient::setQueryString(const std::initializer_list<QStringList> qstr_list
 void LBclient::setTimeOut(const int t)
 {
     if (t>=100 && t<=10000){
-        ton = new QTimer(this);
+        if (!ton){
+            ton = new QTimer(this);
+            connect(ton, SIGNAL(timeout()),this, SLOT(isTimeout()));
+        }
         ton->setSingleShot(true);
         ton->setInterval(t);
-        connect(ton, SIGNAL(timeout()),this, SLOT(isTimeout()));
     }else{
         lbDevice->setDeviceError(lbConfErrorTimeoutStr, lbConfError);
+        if (ton)
+            ton->deleteLater();
+        ton = nullptr;
     }
 }
 
@@ -240,6 +246,7 @@ void LBclient::isConnected(QModbusDevice::State)
 {
     switch (lbDevice->state()) {
     case QModbusDevice::ConnectedState:
+        emit lbConnected(lbhost);
         Run();
         break;
     case QModbusDevice::UnconnectedState:
@@ -304,6 +311,7 @@ QJsonParseError LBclient::lbParseJson(const QByteArray &lbJsonStr, QJsonObject &
 {
     QJsonParseError errJson;
     QJsonDocument docRead;
+    paramJsonObj = QJsonObject();
     docRead = docRead.fromJson(lbJsonStr, &errJson);
     if (errJson.error == QJsonParseError::NoError){
         QJsonObject jObj = docRead.object();
@@ -569,17 +577,25 @@ void LBclient::isRequestFinish()
 
 void LBclient::isTimeout()
 {
-    lbRequestIterator = lbVectorRequest.begin();
-    byteCount = initByteCount;
-    lenCount = 0;
-    i = 0;
-    lbResponseBuffer.clear();
-    SendRequest();
+    if (old_queryString == queryString){
+        lbRequestIterator = lbVectorRequest.begin();
+        byteCount = initByteCount;
+        lenCount = 0;
+        i = 0;
+        lbResponseBuffer.clear();
+        SendRequest();
+    }else
+        Execute();
 }
 
 bool LBclient::getMulpipleRequest() const
 {
     return MulpipleRequest;
+}
+
+void LBclient::lbDisconnectDevice()
+{
+    lbDevice->disconnectDevice();
 }
 
 void LBclient::setLbConn(lbConnection newLbConn)
@@ -804,6 +820,11 @@ qsizetype LBclient::getLenlbArrAfter(qsizetype pos, QByteArray &arr, Tag tag)
     }
     insertTaglbArr(arr, pos, tag);
     return len;
+}
+
+QList<QStringList> LBclient::getQueryString() const
+{
+    return queryString;
 }
 
 QJsonValue LBclient::getJsonValue(QStringList query, const QString lbKey)
@@ -1059,7 +1080,7 @@ void LBclient::printResultsDiag()
 {
     //qDebug().noquote()<<"Response  SHA256 is: "<<lbResponseSHA.toHex();
     //qDebug().noquote()<<"Calculate SHA256 is: "<<
-    //    QCryptographicHash::hash(lbResponseBuffer,QCryptographicHash::Sha256).toHex();
+    //QCryptographicHash::hash(lbResponseBuffer,QCryptographicHash::Sha256).toHex();
     //qDebug().noquote()<<"byteCount is: "<<byteCount;
     //qDebug().noquote()<<"lenCount is: "<<lenCount;
     // qDebug().noquote()<<lbResponseBuffer;

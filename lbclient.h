@@ -33,7 +33,7 @@ public:
     bool setTCPaddr(const QString addr, const int port, const QString iface="");
     void setlbHost(const QString host, const QString filename, const QString iface="");
     void Execute();
-    void extracted(const QStringList &qstr);
+    // void extracted(const QStringList &qstr);
     void setQueryString(const QStringList qstr);
     void setQueryString(const std::initializer_list<QStringList> qstr_list);
     void setTimeOut(const int t);
@@ -64,6 +64,9 @@ public:
     bool getMulpipleRequest() const;
 
     void setlbiface(const QString &newLbiface);
+    void lbDisconnectDevice();
+
+    QList<QStringList> getQueryString() const;
 
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
@@ -71,6 +74,7 @@ signals:
     void ExecuteCompletedStr (const QString& lbstr, const QString& message, const QModbusDevice::Error error);
     void lbDisconnect (const QString& lbhost, const QString& message, const QModbusDevice::Error error);
     void ExecuteFinished (const QString& message, const QModbusDevice::Error error);
+    void lbConnected (const QString& lbhost);
 
 private slots:
     void isConnected(QModbusDevice::State);
@@ -179,6 +183,7 @@ private:
     bool neednext = false;
 
     QVector<QStringList> queryString;
+    QVector<QStringList> old_queryString;
     QJsonValue getJsonValue(QStringList query, const QString lbKey);
     QByteArray getJsonStr(QVector<QStringList> query);
     bool islbRespondMore(const QModbusReply *reply);
