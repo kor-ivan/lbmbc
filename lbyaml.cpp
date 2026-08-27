@@ -33,6 +33,12 @@ QByteArray lbyaml::getlbJson()
     return doc.toJson(QJsonDocument::Compact);
 }
 
+QJsonObject lbyaml::getlbJsonObject()
+{
+    QJsonDocument doc(YamlToJson(config, host));
+    return doc.object();
+}
+
 void lbyaml::printlbconf(const QJsonObject &kqbo)
 {
     std::cout<<JsonToYaml(kqbo)<<std::endl;

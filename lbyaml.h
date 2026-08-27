@@ -21,6 +21,7 @@ public:
 
     explicit lbyaml(const QString filename, YamlMode mode = file, QObject *parent = nullptr);
     QByteArray getlbJson();
+    QJsonObject getlbJsonObject();
     static void printlbconf(const QJsonObject &kqbo);
     static QString getlbconf(const QJsonObject &kqbo, outputFormat f = raw);
     static QString MacToIPv6(QString mac);
