@@ -55,7 +55,10 @@ include(FetchContent)
 FetchContent_Declare(
   yaml-cpp
   GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG master # Can be a tag (yaml-cpp-x.x.x), a commit hash, or a branch name (master)
+  # Pin the exact revision already used by the analysed working build.
+  # Do not follow master: otherwise the same lbcfg commit can build differently
+  # on another day.
+  GIT_TAG e5fe9f2cddbd1a9a8b423bbe40cca661aec6208a
 )
 FetchContent_MakeAvailable(yaml-cpp)
 
