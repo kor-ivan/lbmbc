@@ -1,4 +1,5 @@
 #include "discover.h"
+#include "lbnetworkresolver.h"
 
 
 discover::discover(QObject *parent)
@@ -57,18 +58,11 @@ void discover::setWaitingTime(int newWaitingTime)
 
 QList<QNetworkInterface> discover::getlbIfDiscover()
 {
-    QList<QNetworkInterface> qlnet = QNetworkInterface::allInterfaces();
-    qlnet.removeIf([](QNetworkInterface qif){
-        auto a {[](QNetworkInterface i){
-            foreach (QNetworkAddressEntry h, i.addressEntries()) {
-                if (h.ip().protocol()==QAbstractSocket::IPv6Protocol)
-                    return false;
-            }
-            return true;
-        }};
-        return !(bool)(qif.flags()&QNetworkInterface::IsUp) || (bool)(qif.flags()&QNetworkInterface::IsLoopBack) || a(qif);
-    });
-    return qlnet;
+    // Share the same base usability policy as the resolver (up, non-loopback,
+    // real link-local IPv6), but keep Discovery deliberately broad. It must
+    // still scan P2P/VPN-like adapters because only the reply tells us which
+    // interface actually reaches a PLC.
+    return lbnetwork::discoverIpv6Interfaces();
 }
 
 void discover::getResults()
@@ -115,6 +109,11 @@ void discover::isIfscanIsFinish(const QString &name)
 
 void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
 {
+    // Discover is the authoritative source for the link-local scope. Remember
+    // it centrally so scan/getconf/conf/watch/log/OTA/etc. do not need to
+    // carry %interface manually through the GUI.
+    lbnetwork::rememberInterface(from, ifindex);
+
     emit icmpResponseReceived(from, rttmcs, ifindex);
     if (!lbDiscoverMap.contains(from)){
         lbinfo inf;
@@ -127,7 +126,7 @@ void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
         connect(lbMapIterator.value(), &LBclient::lbDisconnect, this, &discover::islbHostDisconnect);
         // QUrl url = QUrl::fromUserInput(from);
         // url.setPort(502);
-        lbMapIterator.value()->setTCPaddr(from, 502);
+        lbMapIterator.value()->setTCPaddr(from, 502, QString::number(ifindex));
         lbMapIterator.value()->Execute();
         lbcCount++;
         lbFinishMap.insert(from, false);

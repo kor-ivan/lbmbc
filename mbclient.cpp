@@ -1,4 +1,6 @@
 #include "mbclient.h"
+#include "lbnetworkresolver.h"
+#include "lbserialbusaddress.h"
 
 MBclient::MBclient(QCoreApplication *a) {
     //reply = new QModbusReply(QModbusReply::Common, 1, this);
@@ -81,9 +83,20 @@ void MBclient::setTCPaddr(const QUrl url){
     modbusDevice = new QModbusTcpClient(this);
     connect(modbusDevice, SIGNAL(stateChanged(QModbusDevice::State)),
             this, SLOT(isConnected(QModbusDevice::State)));
-    qDebug()<<"IP ="<<url.host()<<"Port ="<<url.port();
+
+    const QString resolvedAddress = lbnetwork::scopedAddressString(url.host());
+    const QString serialBusAddress =
+        lbserialbus::networkAddressParameter(resolvedAddress);
+
+    qDebug().noquote()
+        << "MBclient::setTCPaddr"
+        << url.host()
+        << "=> resolved" << resolvedAddress
+        << "=> QtSerialBus" << serialBusAddress
+        << "Port =" << url.port();
+
     modbusDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
-    modbusDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, url.host());
+    modbusDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, serialBusAddress);
 }
 QModbusDataUnit MBclient::readRequest() const
 {

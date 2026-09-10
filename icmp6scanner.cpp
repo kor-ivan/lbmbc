@@ -1,5 +1,6 @@
 #include "icmp6scanner.h"
 #include <QtConcurrent>
+#include <QThread>
 #ifdef Q_OS_WIN
 #include <iphlpapi.h>
 #include <ws2tcpip.h>
@@ -25,16 +26,25 @@ void Icmp6Scanner::sendMulticastRequest(const QNetworkInterface &iface, const QH
 
         sockaddr_in6 bindAddr = {};
         bindAddr.sin6_family = AF_INET6;
+        bool hasLinkLocal = false;
         for (const QNetworkAddressEntry& entry : iface.addressEntries()) {
-            if (entry.ip().protocol() == QAbstractSocket::IPv6Protocol &&
-                entry.ip().isGlobal() == false) {
-                QHostAddress addr = entry.ip();
-                Q_IPV6ADDR raw = addr.toIPv6Address();
+            const QHostAddress addr = entry.ip();
+            if (addr.protocol() == QAbstractSocket::IPv6Protocol && addr.isLinkLocal()) {
+                const Q_IPV6ADDR raw = addr.toIPv6Address();
                 memcpy(&bindAddr.sin6_addr, &raw, sizeof(raw));
+                hasLinkLocal = true;
                 break;
             }
         }
-        bindAddr.sin6_scope_id = 0;  // Не указываем scope_id при bind
+        if (!hasLinkLocal) {
+            qWarning() << "No link-local IPv6 on interface" << iface.humanReadableName();
+            closesocket(sock);
+            emit scanFinished(iface.humanReadableName());
+            return;
+        }
+        // A link-local bind is interface-scoped too. Without the zone Windows
+        // may bind ambiguously when several NICs are active.
+        bindAddr.sin6_scope_id = iface.index();
 
         if (bind(sock, reinterpret_cast<SOCKADDR*>(&bindAddr), sizeof(bindAddr)) == SOCKET_ERROR) {
             int err = WSAGetLastError();
@@ -98,7 +108,10 @@ void Icmp6Scanner::receiveReplies(SOCKET sock, const QNetworkInterface &iface)
         if (len == SOCKET_ERROR) {
             int err = WSAGetLastError();
             if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK) {
-                //QThread::usleep(1);  // <--- разгрузка процессора
+                // The socket is non-blocking; avoid a full-core busy spin while
+                // waiting for replies. One millisecond is negligible against
+                // the discovery timeout and keeps the GUI machine responsive.
+                QThread::msleep(1);
                 continue;
             }
             qWarning() << "recvfrom error:" << err;
@@ -169,18 +182,25 @@ Icmp6Scanner::~Icmp6Scanner()
 void Icmp6Scanner::sendMulticastRequest(const QNetworkInterface &iface, const QHostAddress &target)
 {
     QStringList arguments;
-    QString striface;
     hrniface = iface.humanReadableName();
-    foreach (QNetworkAddressEntry j, iface.addressEntries()) {
-        if (j.ip().protocol()==QAbstractSocket::IPv6Protocol){
-            striface = j.ip().toString();
+
+    bool hasLinkLocal = false;
+    for (const QNetworkAddressEntry &entry : iface.addressEntries()) {
+        if (entry.ip().protocol() == QAbstractSocket::IPv6Protocol && entry.ip().isLinkLocal()) {
+            hasLinkLocal = true;
             break;
         }
     }
-    QString t = QString::number(timeoutMs/1000);
+    if (!hasLinkLocal) {
+        qWarning() << "No link-local IPv6 on interface" << iface.humanReadableName();
+        emit scanFinished(hrniface);
+        return;
+    }
+
+    QString t = QString::number(qMax(1, timeoutMs / 1000));
     arguments << "-6"
               << target.toString()
-              << "-I" << striface
+              << "-I" << iface.name()
               << "-w" << t
               << "-i" << t
               << "-s" << "32"                   // Размер пакета

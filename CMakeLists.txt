@@ -64,6 +64,7 @@ FetchContent_MakeAvailable(yaml-cpp)
 add_library(lbmbc_lib SHARED
   mbclient.h mbclient.cpp
   lbclient.h lbclient.cpp
+  lbnetworkresolver.h lbnetworkresolver.cpp
   lbmodbusclient.h lbmodbusclient.cpp
   lbyaml.h lbyaml.cpp
   qtyaml.cpp
@@ -102,6 +103,18 @@ target_link_libraries(lbmbc_lib PUBLIC
     Qt${QT_VERSION_MAJOR}::Concurrent
     yaml-cpp::yaml-cpp
 )
+
+# Keep Windows on the stock SerialBus DLL from the selected Qt installation.
+# Older project revisions placed a patched DLL next to lbmbc; overwrite it on
+# every build so an old artifact cannot silently win the DLL search order.
+if(WIN32)
+    add_custom_command(TARGET lbmbc_lib POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::SerialBus>"
+                "$<TARGET_FILE_DIR:lbmbc_lib>"
+        COMMENT "Deploying stock Qt SerialBus runtime for lbmbc"
+    )
+endif()
 
 # # --- 5. Создание ИСПОЛНЯЕМОГО ФАЙЛА (lbmbc) ---
 # add_executable(lbmbc main.cpp)
