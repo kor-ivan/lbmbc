@@ -1,7 +1,6 @@
 #include "lbclient.h"
-#ifdef Q_OS_LINUX
-#include "discover.h"
-#endif
+#include "lbnetworkresolver.h"
+#include "lbserialbusaddress.h"
 #include <QHostAddress>
 
 const QModbusDevice::Error LBclient::lbSHAError = (QModbusDevice::Error)0x12;
@@ -82,27 +81,65 @@ LBclient::~LBclient()
 bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
 {
     lbhost = addr;
-    lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
-#ifdef Q_OS_LINUX
-    QHostAddress qhaddr;
-    if (qhaddr.setAddress(addr) && port>0 && port<65536){
-        if (qhaddr.protocol()==QAbstractSocket::IPv6Protocol){
-            if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
-                qhaddr.setScopeId(iface);
-            else
-                qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
-        }
-        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
-        return true;
+
+    if (port <= 0 || port >= 65536) {
+        lbDevice->setDeviceError(
+            QString("Invalid TCP port: %1").arg(port),
+            lbConfError
+        );
+        return false;
     }
-#else
-    if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol){
-        QString ipv6 = addr;
-        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, ipv6.prepend("[").append("]"));
-    }else
-        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, addr);
-#endif
-    return false;
+
+    lbDevice->setConnectionParameter(
+        QModbusDevice::NetworkPortParameter,
+        port
+    );
+
+    // Centralized IPv6 link-local scope resolution. Every LogicBox request
+    // that goes through LBclient now gets the correct interface automatically.
+    const QString resolvedAddress = lbnetwork::scopedAddressString(addr, iface);
+
+    // Keep resolver semantics independent from QtSerialBus quirks.
+    // On Windows the stock QModbusTcpClient routes NetworkAddressParameter
+    // through QUrl, so an IPv6 literal must be supplied as an URL host
+    // ([addr%25zone]). On Linux leave the resolved socket-style address
+    // untouched for the patched/direct QHostAddress path.
+    const QString serialBusAddress =
+        lbserialbus::networkAddressParameter(resolvedAddress);
+
+    lbDevice->setConnectionParameter(
+        QModbusDevice::NetworkAddressParameter,
+        serialBusAddress
+    );
+
+    qDebug().noquote()
+        << "LBclient::setTCPaddr"
+        << addr
+        << "=> resolved" << resolvedAddress
+        << "=> QtSerialBus" << serialBusAddress
+        << "port =" << port;
+
+    QHostAddress parsed;
+    if (!parsed.setAddress(resolvedAddress)) {
+        // Host names are valid QtSerialBus endpoints too. setAddress() only
+        // accepts IP literals, so do not report a false failure for DNS names.
+        return !resolvedAddress.trimmed().isEmpty();
+    }
+
+    // A raw link-local IPv6 on a multi-NIC machine is not a routable endpoint.
+    // Fail before connectDevice() instead of letting the OS pick/fail later.
+    if (parsed.protocol() == QAbstractSocket::IPv6Protocol &&
+        parsed.isLinkLocal() && parsed.scopeId().isEmpty() &&
+        lbnetwork::activeIpv6Interfaces().size() > 1) {
+        lbDevice->setDeviceError(
+            QString("IPv6 link-local scope is ambiguous for %1. Run Discover or use an explicit interface.")
+                .arg(addr),
+            lbConfError
+        );
+        return false;
+    }
+
+    return true;
 }
 
 void LBclient::setlbHost(const QString host, const QString filename, const QString iface)

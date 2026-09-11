@@ -279,11 +279,14 @@ void lbyaml::implementLbVarMap(const QMap<QString, lbvar> &updatedMap)
                 varNode.remove("retain");
             }
 
-            // 3. Записываем или удаляем Init
+            // 3. Init обязателен для любой переменной, присутствующей в секции "var".
+            // Если значение уже существует или задано пользователем — сохраняем его.
+            // Если Init отсутствует, автоматически добавляем безопасное значение по умолчанию 0.
+            // Существующий Init никогда автоматически не перезаписываем нулём.
             if (!updatedVar.init.isEmpty()) {
                 varNode["init"] = updatedVar.init.toStdString();
-            } else if (varNode["init"]) {
-                varNode.remove("init");
+            } else if (!varNode["init"]) {
+                varNode["init"] = "0";
             }
 
         } else {

@@ -55,7 +55,10 @@ include(FetchContent)
 FetchContent_Declare(
   yaml-cpp
   GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG master # Can be a tag (yaml-cpp-x.x.x), a commit hash, or a branch name (master)
+  # Pin the exact revision already used by the analysed working build.
+  # Do not follow master: otherwise the same lbcfg commit can build differently
+  # on another day.
+  GIT_TAG e5fe9f2cddbd1a9a8b423bbe40cca661aec6208a
 )
 FetchContent_MakeAvailable(yaml-cpp)
 
@@ -64,6 +67,7 @@ FetchContent_MakeAvailable(yaml-cpp)
 add_library(lbmbc_lib SHARED
   mbclient.h mbclient.cpp
   lbclient.h lbclient.cpp
+  lbnetworkresolver.h lbnetworkresolver.cpp
   lbmodbusclient.h lbmodbusclient.cpp
   lbyaml.h lbyaml.cpp
   qtyaml.cpp
@@ -102,6 +106,18 @@ target_link_libraries(lbmbc_lib PUBLIC
     Qt${QT_VERSION_MAJOR}::Concurrent
     yaml-cpp::yaml-cpp
 )
+
+# Keep Windows on the stock SerialBus DLL from the selected Qt installation.
+# Older project revisions placed a patched DLL next to lbmbc; overwrite it on
+# every build so an old artifact cannot silently win the DLL search order.
+if(WIN32)
+    add_custom_command(TARGET lbmbc_lib POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "$<TARGET_FILE:Qt${QT_VERSION_MAJOR}::SerialBus>"
+                "$<TARGET_FILE_DIR:lbmbc_lib>"
+        COMMENT "Deploying stock Qt SerialBus runtime for lbmbc"
+    )
+endif()
 
 # # --- 5. Создание ИСПОЛНЯЕМОГО ФАЙЛА (lbmbc) ---
 # add_executable(lbmbc main.cpp)
