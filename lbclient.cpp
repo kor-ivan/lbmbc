@@ -9,6 +9,7 @@ const QModbusDevice::Error LBclient::lbJsonParseError = (QModbusDevice::Error)0x
 const QModbusDevice::Error LBclient::lbKeyNotfoundError = (QModbusDevice::Error)0x14;
 const QModbusDevice::Error LBclient::lbConfError = (QModbusDevice::Error)0x15;
 const QModbusDevice::Error LBclient::lbYamlParsingError = (QModbusDevice::Error)0x16;
+const QModbusDevice::Error LBclient::lbIpv6LinkLocalError = (QModbusDevice::Error)0x17;
 
 const QString LBclient::KeyGet = "get";
 const QString LBclient::KeySet = "set";
@@ -40,6 +41,7 @@ const QString LBclient::lbFbootCompletedStr = "Fboot loaded correctly";
 const QString LBclient::lbFbootUnitStr = "package";
 const QString LBclient::lbCompletedStr = "Successfully";
 const QString LBclient::lbFsformatCompletedStr = "Timed out but maybe because fsformat is slow";
+const QString LBclient::lbIpv6LinkLocalStr = "The Link-Local IPv6 connection address must be specified together with the interface according to RFC 4291";
 
 
 LBclient::LBclient(QObject *parent) : QObject{parent}, lbDevice(new lbModbusClient(this))
@@ -68,17 +70,6 @@ LBclient::~LBclient()
     delete otafile;
 }
 
-
-// void LBclient::setTCPaddr(const QUrl url)
-// {
-//     lbhost = url.host();
-//     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
-//     lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter,
-//                                      (QHostAddress(url.host()).protocol()==QAbstractSocket::IPv6Protocol)?
-//                                          (url.host().prepend("[").append("]")):(url.host()));
-// }
-
-
 bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
 {
     lbhost = addr;
@@ -96,11 +87,18 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
         return true;
     }
 #else
-    if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol){
-        QString ipv6 = addr;
-        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, ipv6.prepend("[").append("]"));
-    }else
+    if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol && !iface.isEmpty()){
+        QString ipv6 = QString("[%1%2%3]").arg(addr, "%25", iface);
+        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, ipv6);
+        return true;
+    }else if (QHostAddress(addr).protocol()==QAbstractSocket::IPv4Protocol)
+    {
         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, addr);
+        return true;
+    }else if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol && iface.isEmpty()){
+        lbDevice->setDeviceError(lbIpv6LinkLocalStr, lbIpv6LinkLocalError);
+        return false;
+    }
 #endif
     return false;
 }
@@ -111,9 +109,6 @@ void LBclient::setlbHost(const QString host, const QString filename, const QStri
     if (pyaml->getErr() == lbyaml::NoError){
         pyaml->setlbhost(host);
         setTCPaddr(pyaml->getIPv6fromYaml(), 502, iface);
-        // QUrl url = QUrl::fromUserInput(pyaml->getIPv6fromYaml());
-        // url.setPort(502);
-        // setTCPaddr(url);
     }else{
         lbDevice->setDeviceError(lbYamlParsingErrorStr + pyaml->getErr(),lbYamlParsingError);
     }

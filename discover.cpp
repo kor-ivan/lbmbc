@@ -127,7 +127,7 @@ void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
         connect(lbMapIterator.value(), &LBclient::lbDisconnect, this, &discover::islbHostDisconnect);
         // QUrl url = QUrl::fromUserInput(from);
         // url.setPort(502);
-        lbMapIterator.value()->setTCPaddr(from, 502);
+        lbMapIterator.value()->setTCPaddr(from, 502, QString::number(ifindex));
         lbMapIterator.value()->Execute();
         lbcCount++;
         lbFinishMap.insert(from, false);

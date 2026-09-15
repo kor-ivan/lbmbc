@@ -134,6 +134,8 @@ private:
     static const QString lbFbootUnitStr;
     static const QString lbCompletedStr;
     static const QString lbFsformatCompletedStr;
+    static const QModbusDevice::Error lbIpv6LinkLocalError;
+    static const QString lbIpv6LinkLocalStr;
 
     const int lbAddr = 255;
     const int initByteCount = 1;
