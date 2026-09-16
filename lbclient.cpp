@@ -1,7 +1,4 @@
 #include "lbclient.h"
-#ifdef Q_OS_LINUX
-#include "discover.h"
-#endif
 #include <QHostAddress>
 
 const QModbusDevice::Error LBclient::lbSHAError = (QModbusDevice::Error)0x12;
@@ -74,19 +71,19 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
 {
     lbhost = addr;
     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
-#ifdef Q_OS_LINUX
-    QHostAddress qhaddr;
-    if (qhaddr.setAddress(addr) && port>0 && port<65536){
-        if (qhaddr.protocol()==QAbstractSocket::IPv6Protocol){
-            if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
-                qhaddr.setScopeId(iface);
-            else
-                qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
-        }
-        lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
-        return true;
-    }
-#else
+// #ifdef Q_OS_LINUX
+//     QHostAddress qhaddr;
+//     if (qhaddr.setAddress(addr) && port>0 && port<65536){
+//         if (qhaddr.protocol()==QAbstractSocket::IPv6Protocol){
+//             if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
+//                 qhaddr.setScopeId(iface);
+//             else
+//                 qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
+//         }
+//         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
+//         return true;
+//     }
+// #else
     if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol && !iface.isEmpty()){
         QString ipv6 = QString("[%1%2%3]").arg(addr, "%25", iface);
         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, ipv6);
@@ -99,7 +96,7 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
         lbDevice->setDeviceError(lbIpv6LinkLocalStr, lbIpv6LinkLocalError);
         return false;
     }
-#endif
+// #endif
     return false;
 }
 
