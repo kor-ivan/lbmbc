@@ -40,16 +40,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network SerialBus Concurrent)
 
-# Внешняя зависимость yaml-cpp
-# include(FetchContent)
-
-# FetchContent_Declare(
-#   yaml-cpp
-#   GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-#   GIT_TAG master # Can be a tag (yaml-cpp-x.x.x), a commit hash, or a branch name (master)
-# )
-# FetchContent_MakeAvailable(yaml-cpp)
-
 
 # --- 4. Создание БИБЛИОТЕКИ (lbmbc_lib) ---
 # Теперь вся логика здесь
