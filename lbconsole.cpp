@@ -81,6 +81,8 @@ void lbconsole::implement()
     parser.addOption(lbMacOption);
     QCommandLineOption lbYamlExtVar("ext","Extended output of variable analysis in YAML");
     parser.addOption(lbYamlExtVar);
+    QCommandLineOption lbPreOtaKeys({"s","slots"},"The slots that need to be flashed, must be in the PLC","a/b/c/../n");
+    parser.addOption(lbPreOtaKeys);
     QCommandLineOption lbTest("test","Logic Box test option","");
     parser.addOption(lbTest);
     parser.process(*app);
@@ -148,13 +150,13 @@ void lbconsole::implement()
             );
             if (parser.positionalArguments().contains("autoota")){
                 // if (parser.isSet(lbFileNameOption)){
-                    lbproc->setOtaPath(parser.value(lbFileNameOption));
-                    connect(lbproc, &lbprocess::outOta, this, &lbconsole::printOta);
-                    lbproc->run(lbprocess::autoota);
-                // }else{
-                //     qDebug().noquote()<<"File option is not selected";
-                //     emit lbQuit();
-                // }
+                lbproc->setOtaPath(parser.value(lbFileNameOption));
+                if (parser.isSet(lbPreOtaKeys)){
+                    lbproc->setPreOtaSlot(parser.value(lbPreOtaKeys).split('/'));
+                }
+                connect(lbproc, &lbprocess::outOta, this, &lbconsole::printOta);
+                connect(albc, &LBclient::destroyed, app, &QCoreApplication::quit, Qt::QueuedConnection);
+                lbproc->run(lbprocess::autoota);
             }else if (parser.positionalArguments().contains("scan")){
                 if (parser.positionalArguments().size()>1){
                     QStringList vstr = parser.positionalArguments();

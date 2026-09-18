@@ -38,6 +38,8 @@ public:
 
     void setNumOfVarRetries(int newNumOfVarRetries);
 
+    void setPreOtaSlot(const QStringList &otaslots);
+
 signals:
     void outOta(const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
     void outMessage (const QString& lbstr, const QString& message, const QModbusDevice::Error error);
@@ -47,6 +49,7 @@ private:
     QMap<qsizetype, scaninfo> lbscanMap;
     QMap<qsizetype, scaninfo>::Iterator i_lbscanMap;
     QList<qsizetype> lbotaKeys;
+    QList<qsizetype> preOtaKeys;
     QList<qsizetype>::reverse_iterator ri_lbota;
     stage phase;
     processMode mode;
@@ -59,7 +62,8 @@ private:
     int numOfVarRetries = 3;
     int cRetries = 0;
     QStringList scanVar;
-
+    QList<qsizetype> checkOtaKeys(const QList<qsizetype> &otaKeys, const QList<qsizetype> &OtherOtaKeys);
+    bool PreOtaSlotNotValid = false;
 
 
 private slots:

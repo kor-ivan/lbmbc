@@ -10,6 +10,11 @@ lbprocess::lbprocess(QObject *parent, LBclient *lbc)
 
 void lbprocess::run(processMode m, const QStringList var)
 {
+    if (PreOtaSlotNotValid){
+        emit outMessage("STOP preOtaSlot array not valid", "", QModbusDevice::NoError);
+        plbc->deleteLater();
+        return;
+    }
     mode = m;
     scanVar = var;
     plbc->setQueryString({"set", "sys.bustab=1"});
@@ -86,9 +91,49 @@ bool lbprocess::nextOtaSlot()
     return false;
 }
 
+QList<qsizetype> lbprocess::checkOtaKeys(const QList<qsizetype> &otaKeys, const QList<qsizetype> &OtherOtaKeys)
+{
+    if (!OtherOtaKeys.isEmpty()){
+        QSet<qsizetype> otaKeysSet(otaKeys.begin(), otaKeys.end());
+        bool containsAll = true;
+        for(qsizetype key : OtherOtaKeys){
+            if (!otaKeysSet.contains(key)){
+                containsAll = false;
+                break;
+            }
+        }
+        if (containsAll){
+            return OtherOtaKeys;
+        }else{
+            SendOneMessage("END preOtaSlot array not valid");
+            plbc->deleteLater();
+            return QList<qsizetype>();
+        }
+    }
+    return otaKeys;
+}
+
 void lbprocess::setNumOfVarRetries(int newNumOfVarRetries)
 {
     numOfVarRetries = newNumOfVarRetries;
+}
+
+void lbprocess::setPreOtaSlot(const QStringList &otaslots)
+{
+    if(!preOtaKeys.isEmpty()) preOtaKeys.clear();
+    preOtaKeys.reserve(otaslots.size());
+    for (const QString &str : otaslots) {
+        bool ok;
+        qsizetype value = static_cast<qsizetype>(str.toLongLong(&ok));
+        if (ok) {
+            preOtaKeys.append(value);
+        } else {
+            PreOtaSlotNotValid = true;
+            emit outMessage("preOtaSlot array not valid", "", QModbusDevice::NoError);
+            return;
+        }
+    }
+    PreOtaSlotNotValid = false;
 }
 
 void lbprocess::processOta(const QString &lbhost, const QStringList &result, const QString &message, const QModbusDevice::Error error)
@@ -152,7 +197,7 @@ void lbprocess::localExeCompl(const QString &lbhost, const QStringList &result, 
             plbc->deleteLater();
         break;
     case getSysvar:
-        if (error != QModbusDevice::NoError && cRetries<numOfVarRetries){
+        if (error != QModbusDevice::NoError && cRetries < numOfVarRetries){
             cRetries++;
             SendOneMessage("trying the slot " + QString::number(i_lbscanMap.key()) + " ... " + QString::number(cRetries));
             plbc->Execute();
@@ -176,7 +221,8 @@ void lbprocess::localExeCompl(const QString &lbhost, const QStringList &result, 
                     plbc->deleteLater();
                     break;
                 case autoota:
-                    lbotaKeys = lbscanMap.keys();
+                    lbotaKeys = checkOtaKeys(lbscanMap.keys(), preOtaKeys);
+                    if (lbotaKeys.isEmpty()) break;
                     ri_lbota = lbotaKeys.rbegin();
                     phase = ota;
                     connect(plbc, &LBclient::ExecuteCompleted, this, &lbprocess::processOta);
@@ -195,7 +241,8 @@ void lbprocess::localExeCompl(const QString &lbhost, const QStringList &result, 
                 case restartall:
                     SendOneMessage("Start reboot all...");
                     phase = reboot;
-                    lbotaKeys = lbscanMap.keys();
+                    lbotaKeys = checkOtaKeys(lbscanMap.keys(), preOtaKeys);
+                    if (lbotaKeys.isEmpty()) break;
                     ri_lbota = lbotaKeys.rbegin();
                     plbc->setQueryString({"restart"});
                     preparationRestart();
