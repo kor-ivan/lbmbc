@@ -1091,8 +1091,8 @@ QStringList LBclient::getResults(const QJsonObject &Qjo)
             for (int i=1;i<queryString.at(0).size();i++){
                 QJsonValue qjv = Qjo.value(queryString.at(0).at(i));
                 if (qjv.isDouble()){
-                    qdl.append(QString::number(qjv.toDouble()));
-                    lbstr.append(queryString.at(0).at(i) + "=" + QString::number(qjv.toDouble()) + " ");
+                    qdl.append(QString::number(qjv.toDouble(), 'g', 15));
+                    lbstr.append(queryString.at(0).at(i) + "=" + QString::number(qjv.toDouble(), 'g', 15) + " ");
                 }else if (qjv.isString()){
                     qdl.append(qjv.toString());
                     lbstr.append(queryString.at(0).at(i) + "=" + qjv.toString() + " ");
@@ -1104,8 +1104,8 @@ QStringList LBclient::getResults(const QJsonObject &Qjo)
             for (int i=0;i<Qjo.size();i++){
                 QJsonValue qjv = Qjo.value(keys.at(i));
                 if (qjv.isDouble()){
-                    qdl.append(QString::number(qjv.toDouble()));
-                    lbstr.append(keys.at(i) + "=" + QString::number(qjv.toDouble()) + " ");
+                    qdl.append(QString::number(qjv.toDouble(), 'g', 15));
+                    lbstr.append(keys.at(i) + "=" + QString::number(qjv.toDouble(), 'g', 15) + " ");
                 }else if (qjv.isString()){
                     qdl.append(qjv.toString());
                     lbstr.append(keys.at(i) + "=" + qjv.toString() + " ");

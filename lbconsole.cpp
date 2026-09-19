@@ -261,7 +261,8 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const
     if(parser.isSet(lbhostOption)){
         if (parser.isSet(lbInterfaceOption))
             lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption),(parser.value(lbInterfaceOption)));
-        lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption));
+        else
+            lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption));
         }
     else if (parser.isSet(lbInterfaceOption)){
         lbc->setTCPaddr(host, 502, parser.value(lbInterfaceOption));
