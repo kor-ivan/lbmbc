@@ -1084,35 +1084,41 @@ void LBclient::printResultsDiag()
 QStringList LBclient::getResults(const QJsonObject &Qjo)
 {
     QStringList qdl;
+    if (Qjo.isEmpty()) {
+        return qdl;
+    }
+    // Проверяем граничное условие, которое ничего не делает
+    if (queryString.at(0).size() == 1 && queryString.at(0).at(0) == KeyGetconf) {
+        return qdl;
+    }
     QString lbstr;
-    // emit ExecuteCompletedJson(lbhost, Qjo, lbDevice->errorString(), lbDevice->error());
-    if (!Qjo.isEmpty()){
-        if (queryString.at(0).size()>1){
-            for (int i=1;i<queryString.at(0).size();i++){
-                QJsonValue qjv = Qjo.value(queryString.at(0).at(i));
-                if (qjv.isDouble()){
-                    qdl.append(QString::number(qjv.toDouble(), 'g', 15));
-                    lbstr.append(queryString.at(0).at(i) + "=" + QString::number(qjv.toDouble(), 'g', 15) + " ");
-                }else if (qjv.isString()){
-                    qdl.append(qjv.toString());
-                    lbstr.append(queryString.at(0).at(i) + "=" + qjv.toString() + " ");
-                } 
-            }
-        }else if (queryString.at(0).at(0) == KeyGetconf){}
-        else{
-            QStringList keys = Qjo.keys();
-            for (int i=0;i<Qjo.size();i++){
-                QJsonValue qjv = Qjo.value(keys.at(i));
-                if (qjv.isDouble()){
-                    qdl.append(QString::number(qjv.toDouble(), 'g', 15));
-                    lbstr.append(keys.at(i) + "=" + QString::number(qjv.toDouble(), 'g', 15) + " ");
-                }else if (qjv.isString()){
-                    qdl.append(qjv.toString());
-                    lbstr.append(keys.at(i) + "=" + qjv.toString() + " ");
-                }
-            }
+    // Лямбда-функция для исключения дублирования логики обработки значений
+    auto processValue = [&](const QString &key, const QJsonValue &qjv) {
+        if (qjv.isDouble()) {
+            QString valStr = QString::number(qjv.toDouble(), 'g', 15);
+            qdl.append(valStr);
+            lbstr.append(key).append('=').append(valStr).append(' ');
+        } else if (qjv.isString()) {
+            QString valStr = qjv.toString();
+            qdl.append(valStr);
+            lbstr.append(key).append('=').append(valStr).append(' ');
         }
-        emit ExecuteCompletedStr(lbstr.trimmed(),lbDevice->errorString(), lbDevice->error());
+    };
+    if (queryString.at(0).size() > 1) {
+        // Обход по заранее заданному списку ключей
+        const QStringList &keysList = queryString.at(0);
+        for (int i = 1; i < keysList.size(); ++i) {
+            const QString &key = keysList.at(i);
+            processValue(key, Qjo.value(key));
+        }
+    } else {
+        // Быстрый обход всех элементов QJsonObject без копирования списка keys()
+        for (auto it = Qjo.begin(); it != Qjo.end(); ++it) {
+            processValue(it.key(), it.value());
+        }
+    }
+    if (!lbstr.isEmpty()) {
+        emit ExecuteCompletedStr(lbstr.trimmed(), lbDevice->errorString(), lbDevice->error());
     }
     return qdl;
 }
