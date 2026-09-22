@@ -1,6 +1,7 @@
 #include "lbclient.h"
 #include <QHostAddress>
 
+
 const QModbusDevice::Error LBclient::lbSHAError = (QModbusDevice::Error)0x12;
 const QModbusDevice::Error LBclient::lbJsonParseError = (QModbusDevice::Error)0x13;
 const QModbusDevice::Error LBclient::lbKeyNotfoundError = (QModbusDevice::Error)0x14;
@@ -184,7 +185,22 @@ void LBclient::setTimeOut(const int t)
 
 void LBclient::setOtaFilename(const QString path)
 {
-    otafile = new QFile(path);
+    if (otafile && otafile->isOpen())
+        otafile->close();
+    FirmwarePackage::remove(firmware);
+    firmware = FirmwarePackage::prepare(path);
+    if (!firmware.isOk()){
+        lbDevice->setDeviceError("Firmware preparation error: " + firmware.error, lbConfError);
+        return;
+    }
+    // qDebug() << firmware.path << firmware.temporary;
+    if (firmware.temporary) {
+        emit ExecuteCompleted(lbhost, QStringList{"0", "0", lbOtaUnitStr},
+                              "XZ is unpackaged",
+                              QModbusDevice::NoError);
+
+    }
+    otafile = new QFile(firmware.path);
     if (!otafile->open(QIODevice::ReadOnly)){
         lbDevice->setDeviceError(lbConfErrorFilenameStr, lbConfError);
     }
@@ -265,6 +281,9 @@ void LBclient::Stoping()
 {
     if (lbReply)
         lbReply->deleteLater();
+    if (otafile && otafile->isOpen())
+        otafile->close();
+    FirmwarePackage::remove(firmware);
     emit lbDisconnect(lbhost, lbDevice->errorString(), lbDevice->error());
 }
 
@@ -849,46 +868,6 @@ QJsonValue LBclient::getJsonValue(QStringList query, const QString lbKey)
     }
     return QJsonObject();
 }
-
-// QJsonObject LBclient::getJsonObj(QStringList query, const QString lbKey)
-// {
-//     QJsonObject jObj;
-//     QJsonObject parjObj;
-//     if (lbKey==KeyGet && query.size()>1)
-//         return QueryToJson(query, KeyGet, methodGet);
-//     else if (lbKey==KeySet && query.size()>1)
-//         return QueryToJson(query, KeySet, methodSet);
-//     else if (query[0]==KeyForse && query.size()>1)
-//         return QueryToJson(query, KeyForse, methodSet);
-//     else if (query[0]==KeyUnforse && query.size()>1)
-//         return QueryToJson(query, KeyUnforse, methodGet);
-//     else if (query[0].size()>=KeyRestart.size() && query[0].first(7)==KeyRestart && query.size()>0)
-//         return QueryToJson(query, KeyRestart);
-//     else if (query[0]==KeySettime && query.size()>1)
-//         return QueryToJson(query, KeySettime);
-//     else if (query[0]==KeyStats && query.size()>0)
-//         return QueryToJson(query, KeyStats);
-//     else if (query[0]==KeyGetconf && query.size()>0)
-//         return QueryToJson(query, KeyGetconf);
-//     else if (query[0]==KeyConf && query.size()>0)
-//         return pyaml->getlbJson();
-//     else if (lbKey==KeyFboot){
-//         nw = 0;
-//         percent = "";
-//         return FbootToJson();
-//     }
-//     else if (lbKey==KeyNofboot)
-//         return QueryToJson(query, KeyNofboot);
-//     else if (lbKey==KeyOta || lbKey==KeyLog)
-//         return QJsonObject();
-//     else if (lbKey==KeyFsformat)
-//         return QueryToJson(query, KeyFsformat);
-//     else{
-//         lbDevice->setDeviceError(lbKeyNotfoundErrorStr, lbKeyNotfoundError);
-//         // lbDevice->disconnectDevice();
-//     }
-//     return QJsonObject();
-// }
 
 QByteArray LBclient::getJsonStr(QVector<QStringList> query)
 {

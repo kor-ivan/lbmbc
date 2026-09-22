@@ -13,7 +13,7 @@
 #include "lbyaml.h"
 #include <QFile>
 #include "lbmbc_global.h"
-
+#include "firmwarepackage.h"
 
 
 class LBMBC_EXPORT LBclient : public QObject
@@ -140,7 +140,7 @@ private:
     const int lbAddr = 255;
     const int initByteCount = 1;
     const int lbNumberOfRetries = 0;
-    const int lbOtaTimeout = 4000;
+    const int lbOtaTimeout = 5000;
     const int lbOtaSlotTimeout = 6000;
     const int lbLogTimeout = 3000;
     const int lbLogSlotTimeout = 6000;
@@ -213,6 +213,7 @@ private:
     QString logstr;
 
     inline void insertQuint32 (QByteArray &qba, qsizetype pos, qsizetype data);
+    FirmwarePackage::Result firmware;
 };
 
 #endif // LBCLIENT_H

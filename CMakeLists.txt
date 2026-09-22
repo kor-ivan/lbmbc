@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(lbmbc
-    VERSION 0.1.1
+    VERSION 0.2.0
     LANGUAGES CXX)
 
 # 1. Инкрементируем номер сборки при каждом конфигурировании CMake
@@ -40,16 +40,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Network SerialBus Concurrent)
 
-# Внешняя зависимость yaml-cpp
-# include(FetchContent)
-
-# FetchContent_Declare(
-#   yaml-cpp
-#   GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-#   GIT_TAG master # Can be a tag (yaml-cpp-x.x.x), a commit hash, or a branch name (master)
-# )
-# FetchContent_MakeAvailable(yaml-cpp)
-
 
 # --- 4. Создание БИБЛИОТЕКИ (lbmbc_lib) ---
 # Теперь вся логика здесь
@@ -65,9 +55,31 @@ add_library(lbmbc_lib SHARED
   lbprocess.h lbprocess.cpp
   version.h.in
   lbmbc_global.h
+  firmwarepackage.h firmwarepackage.cpp
 )
 add_subdirectory(external/yaml-cpp)
 target_link_libraries(lbmbc_lib PUBLIC yaml-cpp::yaml-cpp)
+
+# Настройки оптимизации XZ
+set(XZ_NLS OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_XZ OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_XZDEC OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_LZMADEC OFF CACHE BOOL "" FORCE)
+set(XZ_TOOL_LZMAINFO OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(external/xz SYSTEM)
+# Если таргеты созданы, мы принудительно переписываем их свойства COMPILE_OPTIONS.
+# Это свойство Ninja и AUTOMOC читают в самую последнюю очередь перед запуском cc1plus.exe.
+if(TARGET libgnu)
+    set_property(TARGET libgnu PROPERTY COMPILE_OPTIONS "-w")
+endif()
+if(TARGET liblzma)
+    set_property(TARGET liblzma PROPERTY COMPILE_OPTIONS "-w")
+endif()
+target_include_directories(lbmbc_lib SYSTEM PUBLIC external/xz/src/liblzma/api)
+target_link_libraries(lbmbc_lib PRIVATE liblzma)
+
 
 # Эта строка автоматически добавит #define LBMBC_LIBRARY при компиляции библиотеки
 target_compile_definitions(lbmbc_lib PRIVATE LBMBC_LIBRARY)

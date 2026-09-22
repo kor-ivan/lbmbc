@@ -1,3 +1,6 @@
 [submodule "external/yaml-cpp"]
 	path = external/yaml-cpp
 	url = https://github.com/kor-ivan/yaml-cpp.git
+[submodule "external/xz"]
+	path = external/xz
+	url = https://github.com/kor-ivan/xz.git
