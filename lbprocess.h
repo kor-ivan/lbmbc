@@ -14,7 +14,14 @@ public:
         autoota,
         restartall
     };
-    explicit lbprocess(QObject *parent = nullptr, LBclient *lbc = nullptr);
+    enum Strategy{
+        onlyXZ,
+        onlyBin,
+        firstXZ,
+        firstBin
+    };
+
+    explicit lbprocess(QObject *parent = nullptr, LBclient *lbc = nullptr, Strategy strat = onlyXZ);
     void run(processMode m = scan, const QStringList var = {});
     struct scaninfo{
         QString devtype = "unknown";
@@ -64,6 +71,7 @@ private:
     QStringList scanVar;
     QList<qsizetype> checkOtaKeys(const QList<qsizetype> &otaKeys, const QList<qsizetype> &OtherOtaKeys);
     bool PreOtaSlotNotValid = false;
+    Strategy m_strategy;
 
 
 private slots:

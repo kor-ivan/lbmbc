@@ -2,8 +2,8 @@
 #include "discover.h"
 #include <QDir>
 
-lbprocess::lbprocess(QObject *parent, LBclient *lbc)
-    : QObject{parent}, plbc(lbc)
+lbprocess::lbprocess(QObject *parent, LBclient *lbc, Strategy strat)
+    : QObject{parent}, plbc(lbc), m_strategy(strat)
 {
     plbc->setLbConn(LBclient::MaintainTCP);
 }
@@ -39,12 +39,27 @@ void lbprocess::SendOneMessage(const QString &mess)
 
 bool lbprocess::preparationOta()
 {
-    // qDebug()<<"preota"<<*ri_lbota<<plbc->getlbDeviceError();
     if (lbscanMap.value(*ri_lbota).devtype!="unknown"){
         // qDebug()<<otaPath + lbscanMap.value(*ri_lbota).devtype + ".bin";
-        plbc->setOtaFilename(otaPath + lbscanMap.value(*ri_lbota).devtype + ".bin");
+        QString binPath = otaPath + lbscanMap.value(*ri_lbota).devtype + ".bin";
+        QString xzPath  = otaPath + lbscanMap.value(*ri_lbota).devtype + ".bin.xz";
+        QString finalFile;
+
+        if (m_strategy == onlyBin) {
+            finalFile = binPath;
+        } else if (m_strategy == onlyXZ) {
+            finalFile = xzPath;
+        } else if (m_strategy == firstBin) {
+            finalFile = QFile::exists(binPath) ? binPath : xzPath;
+        } else if (m_strategy == firstXZ) {
+            finalFile = QFile::exists(xzPath) ? xzPath : binPath;
+        }
+        if (!finalFile.isEmpty()) {
+            plbc->setOtaFilename(finalFile);
+        }
+
         if (plbc->getlbDeviceError()==QModbusDevice::NoError){
-            SendOneMessage("Now ota slot " + QString::number(*ri_lbota) + " from " + otaPath + lbscanMap.value(*ri_lbota).devtype + ".bin");
+            SendOneMessage("Now ota slot " + QString::number(*ri_lbota) + " from " + finalFile);
             plbc->setQueryString({"ota"}); //todo here setEnablePassTimeout
             if (*ri_lbota!=-1)
                 plbc->setSlot(*ri_lbota);
@@ -70,6 +85,7 @@ void lbprocess::preparationRestart()
 
 void lbprocess::preparationOtaCompl()
 {
+    plbc->setOtaFilename(QString());
     SendOneMessage("End autoota and start reboot");
     phase = reboot;
     disconnect(plbc, &LBclient::ExecuteCompleted, this, &lbprocess::processOta);
@@ -87,6 +103,8 @@ bool lbprocess::nextOtaSlot()
     if (ri_lbota!=lbotaKeys.rend()){
         if (preparationOta())
             return true;
+        else
+            return nextOtaSlot();
     }
     return false;
 }
@@ -233,7 +251,6 @@ void lbprocess::localExeCompl(const QString &lbhost, const QStringList &result, 
                         if (nextOtaSlot()){
                             plbc->Execute();
                         }else{
-                            // qDebug()<<"preparationOtaCompl into localExeCompl";
                             preparationOtaCompl();
                         }
                     }
@@ -298,8 +315,17 @@ void lbprocess::localFinish(const QString &message, const QModbusDevice::Error e
             }
             ri_lbota++;
             if (ri_lbota!=lbotaKeys.rend()){
-                if (preparationOta())
+                // if (preparationOta())
+                //     plbc->Execute();
+                if (preparationOta()){
                     plbc->Execute();
+                }else{
+                    if (nextOtaSlot()){
+                        plbc->Execute();
+                    }else{
+                        preparationOtaCompl();
+                    }
+                }
             }else{
                 // qDebug()<<"preparationOtaCompl into localFinish";
                 preparationOtaCompl();

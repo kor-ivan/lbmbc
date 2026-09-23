@@ -83,6 +83,8 @@ void lbconsole::implement()
     parser.addOption(lbYamlExtVar);
     QCommandLineOption lbPreOtaKeys({"s","slots"},"The slots that need to be flashed, must be in the PLC","a/b/c/../n");
     parser.addOption(lbPreOtaKeys);
+    QCommandLineOption lbStrategyOption("strat","Firmware file search strategy 0 - onlyXZ, 1 - onlyBin, 2 - firstXZ, 3 - firstBin","number", "onlyXZ");
+    parser.addOption(lbStrategyOption);
     QCommandLineOption lbTest("test","Logic Box test option","");
     parser.addOption(lbTest);
     parser.process(*app);
@@ -138,7 +140,16 @@ void lbconsole::implement()
             LBclient *albc = new LBclient(this);
             setlbAddr(parser, albc, lbhostOption, lbYamlConfOption, lbMacOption, hostOption, lbInterfaceOption);
             connect(albc, &LBclient::lbDisconnect, this, &lbconsole::printDisconnect);
-            lbprocess *lbproc = new lbprocess(this, albc);
+            lbprocess::Strategy strat = lbprocess::onlyXZ;
+            if (parser.isSet(lbStrategyOption)){
+                bool ok;
+                int num = parser.value(lbStrategyOption).toInt(&ok);
+                if (ok){
+                    strat = (lbprocess::Strategy)(num);
+                }else
+                    qDebug().noquote()<<"Strategy option is not valid";
+            }
+            lbprocess *lbproc = new lbprocess(this, albc, strat);
             connect(lbproc, &lbprocess::outMessage, this, &lbconsole::printMessage);
             connect(lbproc, &lbprocess::scanCompleted, this,
                     [](const QMap<qsizetype, lbprocess::scaninfo>& scan){
@@ -151,9 +162,8 @@ void lbconsole::implement()
             if (parser.positionalArguments().contains("autoota")){
                 // if (parser.isSet(lbFileNameOption)){
                 lbproc->setOtaPath(parser.value(lbFileNameOption));
-                if (parser.isSet(lbPreOtaKeys)){
-                    lbproc->setPreOtaSlot(parser.value(lbPreOtaKeys).split('/'));
-                }
+                if (parser.isSet(lbPreOtaKeys))
+                    lbproc->setPreOtaSlot(parser.value(lbPreOtaKeys).split('/')); 
                 connect(lbproc, &lbprocess::outOta, this, &lbconsole::printOta);
                 connect(albc, &LBclient::destroyed, app, &QCoreApplication::quit, Qt::QueuedConnection);
                 lbproc->run(lbprocess::autoota);

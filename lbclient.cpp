@@ -188,18 +188,23 @@ void LBclient::setOtaFilename(const QString path)
     if (otafile && otafile->isOpen())
         otafile->close();
     FirmwarePackage::remove(firmware);
+    if (path.isEmpty()){
+        lbDevice->setDeviceError("", QModbusDevice::NoError);
+        return;
+    }
     firmware = FirmwarePackage::prepare(path);
     if (!firmware.isOk()){
         lbDevice->setDeviceError("Firmware preparation error: " + firmware.error, lbConfError);
         return;
     }
+    lbDevice->setDeviceError("", QModbusDevice::NoError);
     // qDebug() << firmware.path << firmware.temporary;
-    if (firmware.temporary) {
-        emit ExecuteCompleted(lbhost, QStringList{"0", "0", lbOtaUnitStr},
-                              "XZ is unpackaged",
-                              QModbusDevice::NoError);
+    // if (firmware.temporary) {
+    //     emit ExecuteCompleted(lbhost, QStringList{"0", "0", lbOtaUnitStr},
+    //                           "XZ is unpackaged",
+    //                           QModbusDevice::NoError);
 
-    }
+    // }
     otafile = new QFile(firmware.path);
     if (!otafile->open(QIODevice::ReadOnly)){
         lbDevice->setDeviceError(lbConfErrorFilenameStr, lbConfError);
