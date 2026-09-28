@@ -1,33 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(lbmbc
-    VERSION 0.2.0
+    VERSION 0.2.1
     LANGUAGES CXX)
-
-# 1. Инкрементируем номер сборки при каждом конфигурировании CMake
-include(increment_build.cmake)
-
-# 2. Извлекаем короткий хеш последнего коммита Git
-find_package(Git QUIET)
-if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
-    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
-                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-                    OUTPUT_VARIABLE GIT_COMMIT_HASH
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-else()
-    set(GIT_COMMIT_HASH "n/a") # Если Git не найден или нет репозитория
-endif()
-
-# Устанавливаем переменную CMake, которая будет использоваться в configure_file
-set(GIT_COMMIT_HASH ${GIT_COMMIT_HASH} CACHE INTERNAL "Current git commit hash")
-
-# 3. Генерируем итоговый version.h из шаблона version.h.in
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/version.h.in
-    ${CMAKE_CURRENT_BINARY_DIR}/version.h
-    @ONLY
-)
-
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -56,6 +31,7 @@ add_library(lbmbc_lib SHARED
   version.h.in
   lbmbc_global.h
   firmwarepackage.h firmwarepackage.cpp
+  GenerateVersion.cmake
 )
 add_subdirectory(external/yaml-cpp)
 target_link_libraries(lbmbc_lib PUBLIC yaml-cpp::yaml-cpp)
@@ -109,45 +85,52 @@ target_link_libraries(lbmbc_lib PUBLIC
     yaml-cpp::yaml-cpp
 )
 
-# # --- 5. Создание ИСПОЛНЯЕМОГО ФАЙЛА (lbmbc) ---
-# add_executable(lbmbc main.cpp)
-
-# # Он просто использует нашу библиотеку
-# target_link_libraries(lbmbc PRIVATE lbmbc_lib)
-
-# # --- 6. Инсталляция ---
-# include(GNUInstallDirs)
-# install(TARGETS lbmbc lbmbc_lib
-#     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-# )
-
-
+# === АВТО-ВЕРСИЯ: Создаем таргет для ежесборочной проверки Git и типа сборки ===
+add_custom_target(lbmbc_version_check ALL
+    COMMAND ${CMAKE_COMMAND}
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/GenerateVersion.cmake"
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+        "${CMAKE_CURRENT_BINARY_DIR}"
+        "${PROJECT_VERSION}"
+        "${CMAKE_BUILD_TYPE}" # Передаем тип сборки шестым аргументом (ARGV6)
+    BYPRODUCTS "${CMAKE_CURRENT_BINARY_DIR}/version.h"
+    COMMENT "Checking Git repository status and build type for version.h..."
+)
 
 # --- 5. Создание ИСПОЛНЯЕМОГО ФАЙЛА (lbmbc) ---
-# Собираем exe только если проект запущен как главный, а не как подмодуль
-if(PROJECT_IS_TOP_LEVEL)
+# Собираем exe, если проект главный ИЛИ если родительский проект lbcfg разрешил сборку (не Debug)
+if(PROJECT_IS_TOP_LEVEL OR BUILD_LBMBC_EXE)
     add_executable(lbmbc main.cpp)
     target_link_libraries(lbmbc PRIVATE lbmbc_lib)
 
-    message(STATUS "lbmbc is TOP LEVEL project: building executable")
+    # Страховка для Multi-config (Visual Studio/Xcode): отключаем сборку lbmbc при выборе Debug
+    set_target_properties(lbmbc PROPERTIES
+        EXCLUDE_FROM_DEFAULT_BUILD_DEBUG TRUE
+    )
+
+    message(STATUS "lbmbc executable target ADDED")
 else()
-    message(STATUS "lbmbc is a dependency: skipping executable")
+    message(STATUS "lbmbc executable target SKIPPED (Debug mode)")
 endif()
+
+
+# === АВТО-ВЕРСИЯ: Подключаем сгенерированные заголовочные файлы к lbmbc ===
+target_include_directories(lbmbc_lib PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+add_dependencies(lbmbc_lib lbmbc_version_check)
 
 # --- 6. Инсталляция ---
 include(GNUInstallDirs)
 
-# Инсталлируем библиотеку всегда
+# Инсталлируем общую библиотеку lbmbc_lib всегда, независимо от конфигурации
 install(TARGETS lbmbc_lib
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
 
-# Инсталлируем exe только если он был создан
-if(PROJECT_IS_TOP_LEVEL)
+# Инсталлируем исполняемый файл lbmbc, только если он был создан
+if(TARGET lbmbc)
     install(TARGETS lbmbc
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        CONFIGURATIONS ${ALLOWED_LBMBC_CONFIG} # Динамически подставляем имя текущей не-Debug конфигурации
     )
 endif()
