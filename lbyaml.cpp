@@ -3,6 +3,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <iostream>
+#include <QFile>
 
 const QString lbyaml::NoError = "No error";
 
@@ -11,9 +12,17 @@ lbyaml::lbyaml(QString filename, YamlMode mode, QObject *parent) :
 {
     try {
         switch (mode) {
-        case file:
-            config = YAML::LoadFile(filename.toStdString());
+        case file:{
+            QFile file(filename);
+            if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                err = "Cannot open file: " + file.errorString();
+                qDebug() << err;
+                return;
+            }
+            QByteArray data = file.readAll();
+            config = YAML::Load(data.constData());
             break;
+        }
         case data:
             config = YAML::Load(filename.toStdString());
             break;
@@ -21,7 +30,7 @@ lbyaml::lbyaml(QString filename, YamlMode mode, QObject *parent) :
             break;
         }
         err = NoError;
-    } catch(const YAML::ParserException& e) {
+    } catch(const YAML::Exception& e) {
         err = e.what();
         qDebug() << "Error parsing YAML: " << err;
     }
