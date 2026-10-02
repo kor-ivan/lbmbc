@@ -132,7 +132,7 @@ install(TARGETS lbmbc_lib
 # Инсталлируем исполняемый файл lbmbc, только если он был создан
 if(TARGET lbmbc)
     install(TARGETS lbmbc
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        RUNTIME DESTINATION .
         CONFIGURATIONS ${ALLOWED_LBMBC_CONFIG} # Динамически подставляем имя текущей не-Debug конфигурации
     )
 endif()
