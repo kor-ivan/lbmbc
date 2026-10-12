@@ -492,7 +492,9 @@ lbyaml::lbvarstat lbyaml::getVarStat()
     return statstr;
 }
 
-YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level)
+YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level,
+                              const int maxLevelYamlObject,
+                              const YAML::EmitterStyle::value styleYamlArray)
 {
     YAML::Node lbconf;
     ++level;
@@ -507,7 +509,7 @@ YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level)
     for (QStringList::Iterator sli = keys.begin();sli!=keys.end();++sli){
         if (qjo[*sli].isObject()){
             lbconf[*sli] = JsonToYaml(qjo[*sli].toObject(), level);
-            if (level>2)
+            if (level>maxLevelYamlObject)
                 lbconf[*sli].SetStyle(YAML::EmitterStyle::Flow);
         }
         if (qjo[*sli].isString()){
@@ -520,9 +522,8 @@ YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level)
                 if (qjo[*sli].toArray().at(i).type() == QJsonValue::Double)
                     lbconf[*sli].push_back(QString::number(qjo[*sli].toArray().at(i).toDouble()));
             }
-            lbconf[*sli].SetStyle(YAML::EmitterStyle::Flow);
+            lbconf[*sli].SetStyle(styleYamlArray);
         }
-
     }
     return lbconf;
 }

@@ -64,7 +64,9 @@ public:
     void setConfig(const QString filename, YamlMode mode = file);
 
 private:
-    static YAML::Node JsonToYaml(QJsonObject qjo, int level=0);
+    static YAML::Node JsonToYaml(QJsonObject qjo, int level=0,
+                                 const int maxLevelYamlObject = 2,
+                                 const YAML::EmitterStyle::value styleYamlArray = YAML::EmitterStyle::Flow);
     QJsonObject YamlToJson(const YAML::Node &fnode, QString host);
     YAML::Node config;
     QString err;
