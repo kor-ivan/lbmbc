@@ -23,7 +23,9 @@ public:
     QByteArray getlbJson();
     QJsonObject getlbJsonObject();
     static void printlbconf(const QJsonObject &kqbo);
-    static QString getlbconf(const QJsonObject &kqbo, outputFormat f = raw);
+    static QString getlbconf(const QJsonObject &kqbo, outputFormat f = raw,
+                             const int maxLevelYamlObject = 2,
+                             const YAML::EmitterStyle::value styleYamlArray = YAML::EmitterStyle::Flow);
     static QString MacToIPv6(QString mac);
     QString getlbmac(const QJsonObject &kqbo);
     QString getIPv6fromYaml();

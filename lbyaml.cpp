@@ -53,13 +53,15 @@ void lbyaml::printlbconf(const QJsonObject &kqbo)
     std::cout<<JsonToYaml(kqbo)<<std::endl;
 }
 
-QString lbyaml::getlbconf(const QJsonObject &kqbo, outputFormat f)
+QString lbyaml::getlbconf(const QJsonObject &kqbo, outputFormat f,
+                          const int maxLevelYamlObject,
+                          const YAML::EmitterStyle::value styleYamlArray)
 {
     QJsonObject mutableKqbo = kqbo;
     if (f == retainY)
         cleanRetain(mutableKqbo);
     std::stringstream ss;
-    ss << JsonToYaml(mutableKqbo);
+    ss << JsonToYaml(mutableKqbo, 0, maxLevelYamlObject, styleYamlArray);
     return QString::fromStdString(ss.str());
 }
 
@@ -502,13 +504,13 @@ YAML::Node lbyaml::JsonToYaml(QJsonObject qjo, int level,
         QString host = qjo.find("hostname")->toString();
         //qDebug()<<host;
         qjo.remove("hostname");
-        lbconf[host] = JsonToYaml(qjo, level);
+        lbconf[host] = JsonToYaml(qjo, level, maxLevelYamlObject, styleYamlArray);
         return lbconf;
     }
     QStringList keys = qjo.keys();
     for (QStringList::Iterator sli = keys.begin();sli!=keys.end();++sli){
         if (qjo[*sli].isObject()){
-            lbconf[*sli] = JsonToYaml(qjo[*sli].toObject(), level);
+            lbconf[*sli] = JsonToYaml(qjo[*sli].toObject(), level, maxLevelYamlObject, styleYamlArray);
             if (level>maxLevelYamlObject)
                 lbconf[*sli].SetStyle(YAML::EmitterStyle::Flow);
         }
