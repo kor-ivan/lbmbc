@@ -67,6 +67,7 @@ public:
     void lbDisconnectDevice();
 
     QList<QStringList> getQueryString() const;
+    void setMaxOtaTimeOutCount(const int newMaxOtc);
 
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);

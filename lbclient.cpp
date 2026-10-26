@@ -843,6 +843,12 @@ QList<QStringList> LBclient::getQueryString() const
     return queryString;
 }
 
+void LBclient::setMaxOtaTimeOutCount(const int newMaxOtc)
+{
+    if (lbDevice && newMaxOtc >= 0 && newMaxOtc <= 10)
+        lbDevice->maxOTC = newMaxOtc;
+}
+
 QJsonValue LBclient::getJsonValue(QStringList query, const QString lbKey)
 {
     if (lbKey==KeyGet && query.size()>1)
