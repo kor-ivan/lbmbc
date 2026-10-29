@@ -1,4 +1,5 @@
 #include "discover.h"
+#include <QCoreApplication>
 
 
 discover::discover(QObject *parent)
@@ -9,11 +10,13 @@ discover::discover(QObject *parent)
 
 discover::~discover()
 {
-    // foreach (auto i, scanner)
-    //     delete i;
-    // foreach (auto i, lbcMap) {
-    //     delete i;
-    // }
+    foreach (auto client, lbcMap) {
+        if (client) {
+            client->lbDisconnectDevice();
+        }
+    }
+
+    // QCoreApplication::processEvents();
 }
 
 
