@@ -1,5 +1,4 @@
 #include "discover.h"
-#include <QCoreApplication>
 
 
 discover::discover(QObject *parent)
