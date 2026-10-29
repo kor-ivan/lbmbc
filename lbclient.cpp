@@ -42,8 +42,9 @@ const QString LBclient::lbFsformatCompletedStr = "Timed out but maybe because fs
 const QString LBclient::lbIpv6LinkLocalStr = "The Link-Local IPv6 connection address must be specified together with the interface according to RFC 4291";
 
 
-LBclient::LBclient(QObject *parent) : QObject{parent}, lbDevice(new lbModbusClient(this))
+LBclient::LBclient(QObject *parent) : QObject{parent}
 {
+    lbDevice = new lbModbusTcpClient(this);
     lbDevice->setNumberOfRetries(lbNumberOfRetries);
 }
 
@@ -72,19 +73,6 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
 {
     lbhost = addr;
     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
-// #ifdef Q_OS_LINUX
-//     QHostAddress qhaddr;
-//     if (qhaddr.setAddress(addr) && port>0 && port<65536){
-//         if (qhaddr.protocol()==QAbstractSocket::IPv6Protocol){
-//             if (qhaddr.scopeId().isEmpty() && !iface.isEmpty())
-//                 qhaddr.setScopeId(iface);
-//             else
-//                 qhaddr.setScopeId(discover::getlbIfDiscover().value(0).humanReadableName());
-//         }
-//         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, qhaddr.toString());
-//         return true;
-//     }
-// #else
     if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol && !iface.isEmpty()){
         QString ipv6 = QString("[%1%2%3]").arg(addr, "%25", iface);
         lbDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, ipv6);
@@ -97,7 +85,6 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
         lbDevice->setDeviceError(lbIpv6LinkLocalStr, lbIpv6LinkLocalError);
         return false;
     }
-// #endif
     return false;
 }
 
@@ -129,8 +116,10 @@ void LBclient::Execute()
             // lbDevice->setDeviceError("", QModbusDevice::NoError);
             Run();
         }else{
-            connect(lbDevice,SIGNAL(stateChanged(QModbusDevice::State)),
-                    this, SLOT(isConnected(QModbusDevice::State)));
+            if (auto qtDevice = dynamic_cast<QModbusDevice*>(lbDevice)) {
+                connect(qtDevice, SIGNAL(stateChanged(QModbusDevice::State)),
+                        this, SLOT(isConnected(QModbusDevice::State)));
+            }
             lbDevice->connectDevice();
         }
     }else{
@@ -257,6 +246,7 @@ QString LBclient::getlbKey()
 
 void LBclient::isConnected(QModbusDevice::State)
 {
+    // qDebug() << lbDevice->state();
     switch (lbDevice->state()) {
     case QModbusDevice::ConnectedState:
         emit lbConnected(lbhost);
@@ -284,6 +274,7 @@ void LBclient::SendRequest()
 
 void LBclient::Stoping()
 {
+    // qDebug() << "Stoping";
     if (lbReply)
         lbReply->deleteLater();
     if (otafile && otafile->isOpen())

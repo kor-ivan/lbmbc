@@ -73,6 +73,7 @@ QList<QNetworkInterface> discover::getlbIfDiscover()
 
 void discover::getResults()
 {
+    // qDebug() << "getResults" << ScannCount << lbcCount;
     if (ScannCount == 0 && lbcCount == 0){
         // qDebug()<<lbDiscoverMap;
         // foreach (const auto i, lbDiscoverMap) {
@@ -108,8 +109,6 @@ void discover::isIfscanIsFinish(const QString &name)
     // qDebug() << ScannCount << "Сканирование завершено на интерфейсе" << name;
     sender()->deleteLater();
     ScannCount--;
-    // if (ScannCount == 0)
-    //     qDebug()<<"Timeout icmpv6Scanner";
     getResults();
 }
 
@@ -148,7 +147,7 @@ void discover::isExecuteCompleted(const QString &lbhost, const QStringList &resu
         }
     }
     // qDebug() << lbcCount << "Запросы Modbus (107) завершены по адресу" << lbhost;
-    sender()->deleteLater();
+    // sender()->deleteLater();
     lbcCount--;
     lbFinishMap.insert(lbhost, true);
     getResults();
@@ -179,7 +178,7 @@ void discover::islbHostDisconnect(const QString &lbhost, const QString &message,
     if (!lbFinishMap.value(lbhost)){
         lbcCount--;
         getResults();
-        qDebug()<<"lbHostDisconnect is"<<lbhost;
+        // qDebug()<<"lbHostDisconnect is"<<lbhost;
     }
 }
 
@@ -200,7 +199,7 @@ QString discover::lbinfo::toString() const
 {
     QString str;
     if (btn) str.append("*");
-    str += QString("%1 %2 %3 %4 ").arg(name).arg(type).arg(mac).arg(ipv4);
+    str += QString("%1 %2 %3 %4 ").arg(name, type, mac, ipv4);
     QStringList ifindexStr;
     for (int i : ifindex) ifindexStr << "IF =" << QString::number(i);
     str += ifindexStr.join(" ") + " ";
