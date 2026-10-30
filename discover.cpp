@@ -106,6 +106,17 @@ QString discover::addColonsToMac(const QString &mac)
     return result;
 }
 
+QList<QSerialPortInfo> discover::getlbSerialDiscover()
+{
+    QList<QSerialPortInfo> availablePorts = QSerialPortInfo::availablePorts();
+    availablePorts.removeIf([](const QSerialPortInfo &port) {
+        // Исключаем порты, у которых нет Vendor ID (обычно это виртуальные или стандартные COM1/COM2)
+        return !port.hasVendorIdentifier();
+    });
+
+    return availablePorts;
+}
+
 void discover::isIfscanIsFinish(const QString &name)
 {
     // qDebug() << ScannCount << "Сканирование завершено на интерфейсе" << name;

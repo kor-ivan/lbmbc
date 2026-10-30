@@ -47,6 +47,7 @@ void lbconsole::implement()
     parser.addPositionalArgument(LBclient::KeyFsformat, "formats the file system PLC");
     parser.addPositionalArgument("discover", "Sending ICMPv6 discover request");
     parser.addPositionalArgument("ifconfig", "Information about network interfaces available for ICMPv6 requests");
+    parser.addPositionalArgument("comconfig", "Information about available serial (COM) ports, specifically USB-to-Serial converters");
     parser.addPositionalArgument("mactoip", "Converts a mac address to an ipv6 address using EUI-64");
     parser.addPositionalArgument("autoota", "Automatic firmware download in all PLC modules, need --fw option");
     parser.addPositionalArgument("scan", "Reads the configuration of all PLC modules, need --ip or --host or --mac option");
@@ -85,6 +86,10 @@ void lbconsole::implement()
     parser.addOption(lbPreOtaKeys);
     QCommandLineOption lbStrategyOption("strat","Firmware file search strategy 0 - onlyXZ, 1 - onlyBin, 2 - firstXZ, 3 - firstBin","number", "onlyXZ");
     parser.addOption(lbStrategyOption);
+    QCommandLineOption serialPortOption({"p", "port"}, "Serial port name for Modbus RTU (e.g. COM3 or /dev/ttyUSB0)", "port");
+    parser.addOption(serialPortOption);
+    QCommandLineOption baudOption({"b", "baud"}, "Baud rate for Modbus RTU (Default: 9600)", "baud", DefaultBaund);
+    parser.addOption(baudOption);
     QCommandLineOption lbTest("test","Logic Box test option","");
     parser.addOption(lbTest);
     parser.process(*app);
@@ -111,8 +116,8 @@ void lbconsole::implement()
                     );
             lbd->execute(parser.value(lbInterfaceOption).toInt());
         }else if (parser.positionalArguments().contains("ifconfig")){
-            discover *lbd = new discover(app);
-            foreach (QNetworkInterface i, lbd->getlbIfDiscover()) {
+            // discover *lbd = new discover(app);
+            foreach (QNetworkInterface i, discover::getlbIfDiscover()) {
                 qDebug()<<"Interface name :"<<i.humanReadableName();
                 qDebug()<<"Interface index:"<<i.index();
                 foreach (QNetworkAddressEntry j, i.addressEntries()) {
@@ -120,7 +125,27 @@ void lbconsole::implement()
                 }
                 qDebug()<<"===========================================";
             }
-            delete lbd;
+            // delete lbd;
+            emit lbQuit();
+        }else if(parser.positionalArguments().contains("comconfig")){
+            QList<QSerialPortInfo> serialPorts = discover::getlbSerialDiscover();
+            if (serialPorts.isEmpty()) {
+                qDebug().noquote() << "No USB Serial devices found.";
+            } else {
+                foreach (const QSerialPortInfo &info, serialPorts) {
+                    qDebug().noquote() << "Port Name      :" << info.portName();
+                    qDebug().noquote() << "System Location:" << info.systemLocation();
+                    qDebug().noquote() << "Description    :" << info.description();
+                    qDebug().noquote() << "Manufacturer   :" << info.manufacturer();
+                    if (info.hasVendorIdentifier()) {
+                        qDebug().noquote() << "Vendor ID      :" << QString("0x%1").arg(info.vendorIdentifier(), 4, 16, QChar('0')).toUpper();
+                    }
+                    if (info.hasProductIdentifier()) {
+                        qDebug().noquote() << "Product ID     :" << QString("0x%1").arg(info.productIdentifier(), 4, 16, QChar('0')).toUpper();
+                    }
+                         qDebug().noquote() << "===========================================";
+                }
+            }
             emit lbQuit();
         }else if(parser.positionalArguments().contains("mactoip")){
             if (parser.isSet(lbMacOption))
@@ -260,8 +285,22 @@ void lbconsole::implement()
 //     // app->deleteLater();
 // }
 
-void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const QCommandLineOption &lbhostOption, const QCommandLineOption &lbYamlConfOption, const QCommandLineOption &lbMacOption, const QCommandLineOption &hostOption, const QCommandLineOption &lbInterfaceOption)
+void lbconsole::setlbAddr(const QCommandLineParser &parser,
+                          LBclient *lbc,
+                          const QCommandLineOption &lbhostOption,
+                          const QCommandLineOption &lbYamlConfOption,
+                          const QCommandLineOption &lbMacOption,
+                          const QCommandLineOption &hostOption,
+                          const QCommandLineOption &lbInterfaceOption)
 {
+    if (parser.isSet("port")) {
+        QString portName = parser.value("port");
+        int baudRate = parser.value("baud").toInt();
+
+        lbc->setSerialAddr(portName, baudRate);
+        return;
+    }
+
     QString host;
     if (parser.isSet(lbMacOption))
         host = lbyaml::MacToIPv6(parser.value(lbMacOption));

@@ -43,10 +43,7 @@ const QString LBclient::lbIpv6LinkLocalStr = "The Link-Local IPv6 connection add
 
 
 LBclient::LBclient(QObject *parent) : QObject{parent}
-{
-    lbDevice = new lbModbusTcpClient(this);
-    lbDevice->setNumberOfRetries(lbNumberOfRetries);
-}
+{}
 
 LBclient::LBclient(QObject *parent, const QStringList postArg, lbConnection conn) : LBclient(parent)
 {
@@ -71,6 +68,13 @@ LBclient::~LBclient()
 
 bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
 {
+    if (lbDevice){
+        delete lbDevice;
+        lbDevice = nullptr;
+    }
+    lbDevice = new lbModbusTcpClient(this);
+    lbDevice->setNumberOfRetries(lbNumberOfRetries);
+
     lbhost = addr;
     lbDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, port);
     if (QHostAddress(addr).protocol()==QAbstractSocket::IPv6Protocol && !iface.isEmpty()){
@@ -86,6 +90,25 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
         return false;
     }
     return false;
+}
+
+bool LBclient::setSerialAddr(const QString &portName, int baudRate, int dataBits, int parity, int stopBits)
+{
+    if (lbDevice){
+        delete lbDevice;
+        lbDevice = nullptr;
+    }
+    lbhost = portName;
+    lbDevice = new lbModbusRtuClient(this);
+    lbDevice->setNumberOfRetries(lbNumberOfRetries);
+
+    lbDevice->setConnectionParameter(QModbusDevice::SerialPortNameParameter, portName);
+    lbDevice->setConnectionParameter(QModbusDevice::SerialBaudRateParameter, baudRate);
+    lbDevice->setConnectionParameter(QModbusDevice::SerialDataBitsParameter, dataBits);
+    lbDevice->setConnectionParameter(QModbusDevice::SerialParityParameter, parity);
+    lbDevice->setConnectionParameter(QModbusDevice::SerialStopBitsParameter, stopBits);
+
+    return true;
 }
 
 void LBclient::setlbHost(const QString host, const QString filename, const QString iface)

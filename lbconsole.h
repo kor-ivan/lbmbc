@@ -30,6 +30,7 @@ private:
     const QString DefaultYamlConf = "conf.yml";
     const QString DefaultInterface = "0";
     const QString DefaultFileName = "";
+    const QString DefaultBaund = "9600";
 
     QCoreApplication* app = nullptr;
 

@@ -25,12 +25,17 @@ public:
         NotMaintainTCP,
         MaintainTCP
     };
+    enum lbTransport {
+        TcpMode,
+        RtuMode
+    };
     explicit LBclient(QObject *parent);
     explicit LBclient(QObject *parent, const QStringList postArg, lbConnection conn = NotMaintainTCP);
     explicit LBclient(QObject *parent, const std::initializer_list<QStringList> postArg, lbConnection conn = NotMaintainTCP);
     virtual ~LBclient();
     // void setTCPaddr(const QUrl);
     bool setTCPaddr(const QString addr, const int port, const QString iface="");
+    bool setSerialAddr(const QString &portName, int baudRate = 9600, int dataBits = 8, int parity = 0, int stopBits = 1);
     void setlbHost(const QString host, const QString filename, const QString iface="");
     void Execute();
     // void extracted(const QStringList &qstr);
@@ -138,14 +143,24 @@ private:
     static const QModbusDevice::Error lbIpv6LinkLocalError;
     static const QString lbIpv6LinkLocalStr;
 
-    const int lbAddr = 255;
+    // const int lbAddr = 255;
+    // const int initByteCount = 1;
+    // const int lbNumberOfRetries = 0;
+    // const int lbOtaTimeout = 5000;
+    // const int lbOtaSlotTimeout = 6000;
+    // const int lbLogTimeout = 3000;
+    // const int lbLogSlotTimeout = 6000;
+    // const int lbDefaultTimeout = 1000;
+    // const int lbFbootTimeout = 8000;
+
+    const int lbAddr = 3;
     const int initByteCount = 1;
     const int lbNumberOfRetries = 0;
     const int lbOtaTimeout = 5000;
     const int lbOtaSlotTimeout = 6000;
     const int lbLogTimeout = 3000;
     const int lbLogSlotTimeout = 6000;
-    const int lbDefaultTimeout = 1000;
+    const int lbDefaultTimeout = 3000;
     const int lbFbootTimeout = 8000;
     const qsizetype xlblogTimeout = 0x14;
 

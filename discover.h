@@ -3,7 +3,7 @@
 
 #include <QObject>
 #include <QNetworkInterface>
-// #include <QCoreApplication>
+#include <QSerialPortInfo>
 #include "icmp6scanner.h"
 #include "lbclient.h"
 #include "lbmbc_global.h"
@@ -37,6 +37,7 @@ public:
         SomeError
     };
     static QString addColonsToMac (const QString &mac);
+    static QList<QSerialPortInfo> getlbSerialDiscover();
 
 signals:
     void discoverCompleted (const QMap<QString, discover::lbinfo>& DiscoverMap, const discover::discoverError error, const QString errorStr);
