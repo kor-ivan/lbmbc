@@ -9,11 +9,11 @@ discover::discover(QObject *parent)
 
 discover::~discover()
 {
-    foreach (auto client, lbcMap) {
-        if (client) {
-            client->lbDisconnectDevice();
-        }
-    }
+    // foreach (auto client, lbcMap) {
+    //     if (client) {
+    //         client->lbDisconnectDevice();
+    //     }
+    // }
 
     // QCoreApplication::processEvents();
 }
@@ -149,7 +149,8 @@ void discover::isExecuteCompleted(const QString &lbhost, const QStringList &resu
         }
     }
     // qDebug() << lbcCount << "Запросы Modbus (107) завершены по адресу" << lbhost;
-    // sender()->deleteLater();
+    lbcMap.value(lbhost)->disconnect();
+    lbcMap.value(lbhost)->lbDisconnectDevice();
     lbcCount--;
     lbFinishMap.insert(lbhost, true);
     getResults();
