@@ -47,6 +47,7 @@ LBclient::LBclient(QObject *parent) : QObject{parent}
 
 LBclient::LBclient(QObject *parent, const QStringList postArg, lbConnection conn) : LBclient(parent)
 {
+    qDebug() << "in to constr";
     lbConn = conn;
     setQueryString(postArg);
 }
@@ -124,6 +125,7 @@ void LBclient::setlbHost(const QString host, const QString filename, const QStri
 
 void LBclient::Execute()
 {
+    qDebug() << "Execute";
     if (!lbVectorRequest.isEmpty()){
         lbResponseBuffer.clear();
         lbVectorRequest.clear();

@@ -231,6 +231,7 @@ void lbconsole::implement()
             emit lbQuit();
         }
         else{
+            qDebug() << "else";
             LBclient *lbc = new LBclient(this, parser.positionalArguments());
             qDebug().noquote()<<lbc->getlbKey(); //print LogicBox Key
             if (lbc->getlbKey()==LBclient::KeyOta || lbc->getlbKey()==LBclient::KeyFboot){
