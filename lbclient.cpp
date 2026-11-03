@@ -47,7 +47,6 @@ LBclient::LBclient(QObject *parent) : QObject{parent}
 
 LBclient::LBclient(QObject *parent, const QStringList postArg, lbConnection conn) : LBclient(parent)
 {
-    qDebug() << "in to constr";
     lbConn = conn;
     setQueryString(postArg);
 }
@@ -93,13 +92,14 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
     return false;
 }
 
-bool LBclient::setSerialAddr(const QString &portName, int baudRate, int dataBits, int parity, int stopBits)
+bool LBclient::setSerialAddr(const QString &portName, const int addr, int baudRate, int dataBits, int parity, int stopBits)
 {
     if (lbDevice){
         delete lbDevice;
         lbDevice = nullptr;
     }
     lbhost = portName;
+    lbAddr = addr;
     lbDevice = new lbModbusRtuClient(this);
     lbDevice->setNumberOfRetries(lbNumberOfRetries);
 
@@ -117,7 +117,8 @@ void LBclient::setlbHost(const QString host, const QString filename, const QStri
     pyaml = new lbyaml(filename);
     if (pyaml->getErr() == lbyaml::NoError){
         pyaml->setlbhost(host);
-        setTCPaddr(pyaml->getIPv6fromYaml(), 502, iface);
+        if (!dynamic_cast<lbModbusRtuClient*>(lbDevice))
+            setTCPaddr(pyaml->getIPv6fromYaml(), 502, iface);
     }else{
         lbDevice->setDeviceError(lbYamlParsingErrorStr + pyaml->getErr(),lbYamlParsingError);
     }
@@ -125,7 +126,6 @@ void LBclient::setlbHost(const QString host, const QString filename, const QStri
 
 void LBclient::Execute()
 {
-    // qDebug() << "Execute";
     if (!lbVectorRequest.isEmpty()){
         lbResponseBuffer.clear();
         lbVectorRequest.clear();
@@ -271,7 +271,6 @@ QString LBclient::getlbKey()
 
 void LBclient::isConnected(QModbusDevice::State)
 {
-    // qDebug() << lbDevice->state();
     switch (lbDevice->state()) {
     case QModbusDevice::ConnectedState:
         emit lbConnected(lbhost);
@@ -290,7 +289,7 @@ void LBclient::SendRequest()
     if (lbDevice->state() == QModbusDevice::ConnectedState){
         if (lbReply)
             lbReply->deleteLater();
-        // printRequestDiag(*lbRequestIterator);
+        printRequestDiag(*lbRequestIterator);
         lbReply = lbDevice->sendRawRequest(*lbRequestIterator,lbAddr);
         ++lbRequestIterator;
         connect(lbReply,SIGNAL(finished()), this, SLOT(isRequestFinish()));
@@ -324,11 +323,18 @@ void LBclient::Run()
             lbDevice->setTimeout(lbFbootTimeout);
             if (lbKey==KeyFsformat) lbDevice->setEnablePassTimeOut(true);
         }
-        else
-            lbDevice->setTimeout((!lbType.slot.isEmpty())?lbOtaSlotTimeout:lbDefaultTimeout);
+        else{
+            if (dynamic_cast<lbModbusTcpClient*>(lbDevice))
+                lbDevice->setTimeout((!lbType.slot.isEmpty())?lbOtaSlotTimeout:lbDefaultTimeout);
+            else if (dynamic_cast<lbModbusRtuClient*>(lbDevice))
+                lbDevice->setTimeout((!lbType.slot.isEmpty())?lbOtaSlotTimeout:lbDefaultRtuTimeout);
+        }
         break;
     default:
-        lbDevice->setTimeout(lbDefaultTimeout);
+        if (dynamic_cast<lbModbusTcpClient*>(lbDevice))
+            lbDevice->setTimeout(lbDefaultTimeout);
+        else
+            lbDevice->setTimeout(lbDefaultRtuTimeout);
         break;
     }
     lbRequestIterator = lbVectorRequest.begin();
@@ -533,7 +539,7 @@ void LBclient::isRequestFinish()
 {
     if (lbDevice->state() == QModbusDevice::ConnectedState){
         if (lbReply->error()==QModbusDevice::NoError){
-            // printResponseDiag(lbReply->rawResult());
+            printResponseDiag(lbReply->rawResult());
             ++i;
             if (lbVectorRequest.end() != lbRequestIterator){
                 if (lbKey==KeyFboot){
@@ -815,6 +821,7 @@ void LBclient::SendAfterRequest(Tag tag)
         lbWrapSlot(pos, getLenlbArrAfter(lbType.slot.size()*2+1, lbArr, tag), lbArr);
     else
         lbArr.replace(pos + 1, 1, QByteArray(1, getLenlbArrAfter(pos, lbArr, tag)));
+    printRequestDiag(QModbusRequest(lbModbusClient::LogicBox, lbArr));
     lbReply = lbDevice->sendRawRequest(QModbusRequest(lbModbusClient::LogicBox, lbArr),lbAddr);
     connect(lbReply,SIGNAL(finished()), this, SLOT(isRequestFinish()));
 }
@@ -1057,24 +1064,61 @@ bool LBclient::islbRespondMore(const QModbusReply *reply)
 
 void LBclient::printResponseDiag(const QModbusResponse localMbResponse)
 {
-    qDebug()<<lbDevice;
-    qDebug()<<"<<<<<<<<<< "<<i<<" <<<<<<<<<<";
-    qDebug().noquote()<<"localMbResponse.data().toHex() = "<<localMbResponse.data().toHex();
-    qDebug()<<"lbDevice->error()<<lbDevice->errorString() = "<<lbDevice->error()<<lbDevice->errorString();
+    // qDebug()<<lbDevice;
+    // qDebug()<<"<<<<<<<<<< "<<i<<" <<<<<<<<<<";
+    // qDebug().noquote()<<"localMbResponse.data().toHex() = "<<localMbResponse.data().toHex();
+    // qDebug()<<"lbDevice->error()<<lbDevice->errorString() = "<<lbDevice->error()<<lbDevice->errorString();
     //qDebug().noquote()<<"localMbResponse.functionCode() = "<<localMbResponse.functionCode();
     //qDebug().noquote()<<"localMbResponse.exceptionCode() = "<<localMbResponse.exceptionCode();
     //qDebug()<<"localMbResponse.ExceptionByte = "<<localMbResponse.ExceptionByte;
     //qDebug()<<"type = "<<lbReply->type();
     //qDebug()<<"rawResult().isException() = "<<lbReply->rawResult().isException();
     //qDebug()<<"rawResult().isValid() = "<<lbReply->rawResult().isValid();
+
+    QString logMessage;
+    QDebug deb(&logMessage);
+    deb.nospace().noquote();
+
+    QByteArray rawData = localMbResponse.data();
+    QString hexData = rawData.toHex();
+
+    // Заменяем нулевые байты на пробелы
+    QString textData = QString::fromUtf8(rawData.replace('\0', ' '));
+
+    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " <<<<<<<<<< " << i << " <<<<<<<<<<\n"
+        << i << "     lbResponse is : " << (textData.trimmed().isEmpty() ? "[Binary Data]" : textData) << "\n"
+        << i << " HEX lbResponse is : " << hexData << "\n";
+
+    if (lbDevice) {
+        deb << "lbDevice->error()<<lbDevice->errorString() = " << lbDevice->error() << " " << lbDevice->errorString() << "\n";
+    }
+
+    qDebug().noquote() << logMessage;
 }
 
 void LBclient::printRequestDiag(const QModbusRequest localMbRequest)
 {
-    qDebug()<<">>>>>>>>> "<<i<<" >>>>>>>>>";
-    qDebug().noquote()<<i<<"     lbRequest is : "<<localMbRequest.data();
-    qDebug().noquote()<<i<<" HEX lbRequest is : "<<localMbRequest.data().toHex();
+    // qDebug()<<">>>>>>>>> "<<i<<" >>>>>>>>>";
+    // qDebug().noquote()<<i<<"     lbRequest is : "<<localMbRequest.data();
+    // qDebug().noquote()<<i<<" HEX lbRequest is : "<<localMbRequest.data().toHex();
     //qDebug()<<i<<" sendRawRequest....";
+
+    QString logMessage;
+    QDebug deb(&logMessage);
+    deb.nospace().noquote();
+
+    QByteArray rawData = localMbRequest.data();
+    QString hexData = rawData.toHex();
+
+    // Заменяем нулевые байты на пробелы, чтобы они не обрывали строку,
+    // и выводим только печатные символы
+    QString textData = QString::fromUtf8(rawData.replace('\0', ' '));
+
+    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " >>>>>>>>> " << i << " >>>>>>>>>\n"
+        << i << "     lbRequest is : " << (textData.trimmed().isEmpty() ? "[Binary Data]" : textData) << "\n"
+        << i << " HEX lbRequest is : " << hexData << "\n";
+
+    qDebug().noquote() << logMessage;
 }
 
 void LBclient::printResultsDiag()

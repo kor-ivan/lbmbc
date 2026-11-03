@@ -88,7 +88,7 @@ void lbconsole::implement()
     parser.addOption(lbStrategyOption);
     QCommandLineOption serialPortOption({"p", "port"}, "Serial port name for Modbus RTU (e.g. COM3 or /dev/ttyUSB0)", "port");
     parser.addOption(serialPortOption);
-    QCommandLineOption baudOption({"b", "baud"}, "Baud rate for Modbus RTU (Default: 9600)", "baud", DefaultBaund);
+    QCommandLineOption baudOption({"b", "baud"}, "Modbus RTU parameters (Format: addr/[baud]/[dataBits]/[parity]/[stopBits]. Only 'addr' is required)", "addr/[9600]/...", "");
     parser.addOption(baudOption);
     QCommandLineOption lbTest("test","Logic Box test option","");
     parser.addOption(lbTest);
@@ -231,7 +231,6 @@ void lbconsole::implement()
             emit lbQuit();
         }
         else{
-            qDebug() << "else";
             LBclient *lbc = new LBclient(this, parser.positionalArguments());
             qDebug().noquote()<<lbc->getlbKey(); //print LogicBox Key
             if (lbc->getlbKey()==LBclient::KeyOta || lbc->getlbKey()==LBclient::KeyFboot){
@@ -294,13 +293,13 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser,
                           const QCommandLineOption &hostOption,
                           const QCommandLineOption &lbInterfaceOption)
 {
-    if (parser.isSet("port")) {
-        QString portName = parser.value("port");
-        int baudRate = parser.value("baud").toInt();
+    // if (parser.isSet("port")) {
+    //     QString portName = parser.value("port");
+    //     int baudRate = parser.value("baud").toInt();
 
-        lbc->setSerialAddr(portName, baudRate);
-        return;
-    }
+    //     lbc->setSerialAddr(portName, baudRate);
+    //     return;
+    // }
 
     QString host;
     if (parser.isSet(lbMacOption))
@@ -313,18 +312,53 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser,
             lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption),(parser.value(lbInterfaceOption)));
         else
             lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption));
-        }
-    else if (parser.isSet(lbInterfaceOption)){
+    }
+    else if (parser.isSet(lbInterfaceOption) && !parser.isSet("port")){
         lbc->setTCPaddr(host, 502, parser.value(lbInterfaceOption));
     }
-    else{
-        // QUrl url = QUrl::fromUserInput((parser.isSet(lbMacOption))?
-        //                                    lbyaml::MacToIPv6(parser.value(lbMacOption)):
-        //                                    parser.value(hostOption));
-        // url.setPort((QUrl::fromUserInput(DefaultHost)).port());
+    else if (!parser.isSet("port")){
         lbc->setTCPaddr(host, QUrl::fromUserInput(DefaultHost).port());
     }
+
+    if (parser.isSet("port")){
+        QString portName = parser.value("port");
+        if (parser.isSet("baud")) {
+            QString baudRaw = parser.value("baud");
+            QStringList parts = baudRaw.split('/');
+            if (parts.isEmpty()) {
+                qDebug().noquote() << "Error: --baud option cannot be empty. Format: addr/[baud]/[dataBits]/[parity]/[stopBits]";
+                return;
+            }
+            bool ok;
+            int addr = parts.at(0).toInt(&ok);
+            if (!ok) {
+                qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
+                return;
+            }
+            switch (parts.size()) {
+            case 1: // Указан только addr
+                lbc->setSerialAddr(portName, addr);
+                break;
+            case 2: // Указаны addr/baudRate
+                lbc->setSerialAddr(portName, addr, parts.at(1).toInt());
+                break;
+            case 3: // Указаны addr/baudRate/dataBits
+                lbc->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt());
+                break;
+            case 4: // Указаны addr/baudRate/dataBits/parity
+                lbc->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt());
+                break;
+            default: // Указаны все 5 параметров или более (лишние игнорируются)
+                lbc->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt(), parts.at(4).toInt());
+                break;
+            }
+        } else {
+            qDebug().noquote() << "Error: When using --port, the --baud option with at least 'addr' is required.";
+        }
+
+    }
 }
+
 
 void lbconsole::printStatstr(const lbyaml::lbvarstat &statstr, lbyaml &yaml)
 {
