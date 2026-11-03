@@ -125,7 +125,7 @@ void LBclient::setlbHost(const QString host, const QString filename, const QStri
 
 void LBclient::Execute()
 {
-    qDebug() << "Execute";
+    // qDebug() << "Execute";
     if (!lbVectorRequest.isEmpty()){
         lbResponseBuffer.clear();
         lbVectorRequest.clear();
@@ -314,13 +314,16 @@ void LBclient::Run()
     switch (lbType.alg) {
     case lbota:
         lbDevice->setTimeout((!lbType.slot.isEmpty())?lbOtaSlotTimeout:lbOtaTimeout);
+        lbDevice->setEnablePassTimeOut(true);
         break;
     case lblog:
         lbDevice->setTimeout((!lbType.slot.isEmpty())?lbLogSlotTimeout:lbLogTimeout);
         break;
     case lbcmd:
-        if (lbKey==KeyFboot  || lbKey==KeyFsformat)
+        if (lbKey==KeyFboot  || lbKey==KeyFsformat){
             lbDevice->setTimeout(lbFbootTimeout);
+            if (lbKey==KeyFsformat) lbDevice->setEnablePassTimeOut(true);
+        }
         else
             lbDevice->setTimeout((!lbType.slot.isEmpty())?lbOtaSlotTimeout:lbDefaultTimeout);
         break;
@@ -471,7 +474,7 @@ void LBclient::setlbBase(const QString str)
     }
     else if (lbKey == KeyOta){
         // lbDevice->setTimeout((!lbType.slot.isEmpty())?lbOtaSlotTimeout:lbOtaTimeout);
-        lbDevice->setEnablePassTimeOut(true);
+        // lbDevice->setEnablePassTimeOut(true);
         lbType.alg = lbota;
     }
     else if (lbKey == KeyLog){
@@ -483,7 +486,7 @@ void LBclient::setlbBase(const QString str)
         lbType.alg = lblog;
     }
     else if (lbKey == KeyFsformat){
-        lbDevice->setEnablePassTimeOut(true);
+        // lbDevice->setEnablePassTimeOut(true);
         lbType.alg = lbcmd;
     }
     else{
