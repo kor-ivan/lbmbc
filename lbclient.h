@@ -25,10 +25,13 @@ public:
         NotMaintainTCP,
         MaintainTCP
     };
-    // enum lbTransport {
-    //     TcpMode,
-    //     RtuMode
-    // };
+    enum DebugMaskBit {
+        none = 0,
+        DebugResponseText = 1 << 0,  // 1: lbResponse is : ...
+        DebugResponseHex  = 1 << 1,  // 2: HEX lbResponse is : ...
+        DebugResultsDiag  = 1 << 2,  // 4: printResultsDiag
+        DebugFullStats    = 1 << 3   // 8 (Вывод SHA256, byteCount, lenCount)
+    };
     explicit LBclient(QObject *parent);
     explicit LBclient(QObject *parent, const QStringList postArg, lbConnection conn = NotMaintainTCP);
     explicit LBclient(QObject *parent, const std::initializer_list<QStringList> postArg, lbConnection conn = NotMaintainTCP);
@@ -74,6 +77,8 @@ public:
     QList<QStringList> getQueryString() const;
     void setMaxOtaTimeOutCount(const int newMaxOtc);
 
+    void setDebugMask(int mask);
+
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
     void ExecuteCompletedJson (const QString& lbhost, const QJsonObject& Qjo, const QString& message, const QModbusDevice::Error error);
@@ -81,6 +86,7 @@ signals:
     void lbDisconnect (const QString& lbhost, const QString& message, const QModbusDevice::Error error);
     void ExecuteFinished (const QString& message, const QModbusDevice::Error error);
     void lbConnected (const QString& lbhost);
+    void lbDebugMessage (const QString &message);
 
 private slots:
     void isConnected(QModbusDevice::State);
@@ -221,6 +227,7 @@ private:
 
     inline void insertQuint32 (QByteArray &qba, qsizetype pos, qsizetype data);
     FirmwarePackage::Result firmware;
+    DebugMaskBit debugMask = none;
 };
 
 #endif // LBCLIENT_H

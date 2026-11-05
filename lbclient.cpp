@@ -576,7 +576,7 @@ void LBclient::isRequestFinish()
                                 emit ExecuteCompleted(lbhost, getResults(lbRequestQjo), lbDevice->errorString(), lbDevice->error());
                                 emit ExecuteCompletedJson(lbhost, lbRequestQjo, lbDevice->errorString(), lbDevice->error());
                             }
-                            // printResultsDiag();
+                            printResultsDiag();
                             if (ton!=nullptr)
                                 ton->start();
                             else if (lbConn == NotMaintainTCP)
@@ -875,6 +875,11 @@ void LBclient::setMaxOtaTimeOutCount(const int newMaxOtc)
         lbDevice->maxOTC = newMaxOtc;
 }
 
+void LBclient::setDebugMask(int mask)
+{
+    debugMask = static_cast<DebugMaskBit>(mask);
+}
+
 QJsonValue LBclient::getJsonValue(QStringList query, const QString lbKey)
 {
     if (lbKey==KeyGet && query.size()>1)
@@ -1075,25 +1080,36 @@ void LBclient::printResponseDiag(const QModbusResponse localMbResponse)
     //qDebug()<<"rawResult().isException() = "<<lbReply->rawResult().isException();
     //qDebug()<<"rawResult().isValid() = "<<lbReply->rawResult().isValid();
 
+    if (!(debugMask & (DebugResponseText | DebugResponseHex))) {
+        return;
+    }
+
     QString logMessage;
     QDebug deb(&logMessage);
     deb.nospace().noquote();
 
     QByteArray rawData = localMbResponse.data();
-    QString hexData = rawData.toHex();
 
-    // Заменяем нулевые байты на пробелы
-    QString textData = QString::fromUtf8(rawData.replace('\0', ' '));
+    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " <<<<<<<<<< " << i << " <<<<<<<<<<\n";
 
-    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " <<<<<<<<<< " << i << " <<<<<<<<<<\n"
-        << i << "     lbResponse is : " << (textData.trimmed().isEmpty() ? "[Binary Data]" : textData) << "\n"
-        << i << " HEX lbResponse is : " << hexData << "\n";
+    // 1 бит - Текстовый ответ
+    if (debugMask & DebugResponseText) {
+        QByteArray textRaw = rawData;
+        QString textData = QString::fromUtf8(textRaw.replace('\0', "").replace('\r', ' '));
+        deb << i << "     lbResponse is : " << textData << "\n";
+    }
+
+    // 2 бит - HEX ответ
+    if (debugMask & DebugResponseHex) {
+        QString hexData = rawData.toHex();
+        deb << i << " HEX lbResponse is : " << hexData << "\n";
+    }
 
     if (lbDevice) {
         deb << "lbDevice->error()<<lbDevice->errorString() = " << lbDevice->error() << " " << lbDevice->errorString() << "\n";
     }
 
-    qDebug().noquote() << logMessage;
+    emit lbDebugMessage(logMessage);
 }
 
 void LBclient::printRequestDiag(const QModbusRequest localMbRequest)
@@ -1103,22 +1119,32 @@ void LBclient::printRequestDiag(const QModbusRequest localMbRequest)
     // qDebug().noquote()<<i<<" HEX lbRequest is : "<<localMbRequest.data().toHex();
     //qDebug()<<i<<" sendRawRequest....";
 
+    if (!(debugMask & (DebugResponseText | DebugResponseHex))) {
+        return;
+    }
+
     QString logMessage;
     QDebug deb(&logMessage);
     deb.nospace().noquote();
 
     QByteArray rawData = localMbRequest.data();
-    QString hexData = rawData.toHex();
 
-    // Заменяем нулевые байты на пробелы, чтобы они не обрывали строку,
-    // и выводим только печатные символы
-    QString textData = QString::fromUtf8(rawData.replace('\0', ' '));
+    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " >>>>>>>>> " << i << " >>>>>>>>>\n";
 
-    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " >>>>>>>>> " << i << " >>>>>>>>>\n"
-        << i << "     lbRequest is : " << (textData.trimmed().isEmpty() ? "[Binary Data]" : textData) << "\n"
-        << i << " HEX lbRequest is : " << hexData << "\n";
+    // 1 бит (DebugResponseText) - Текстовое представление запроса
+    if (debugMask & DebugResponseText) {
+        QByteArray textRaw = rawData;
+        QString textData = QString::fromUtf8(textRaw.replace('\0', "").replace('\r', ' '));
+        deb << i << "     lbRequest is : " <<  textData << "\n";
+    }
 
-    qDebug().noquote() << logMessage;
+    // 2 бит (DebugResponseHex) - HEX представление запроса
+    if (debugMask & DebugResponseHex) {
+        QString hexData = rawData.toHex();
+        deb << i << " HEX lbRequest is : " << hexData << "\n";
+    }
+
+    emit lbDebugMessage(logMessage);
 }
 
 void LBclient::printResultsDiag()
@@ -1131,7 +1157,32 @@ void LBclient::printResultsDiag()
     // qDebug().noquote()<<lbResponseBuffer;
     //qDebug().noquote()<<lbResponseBuffer.toHex();
     //qDebug()<<"lbDevice->error()<<lbDevice->errorString() = "<<lbDevice->error()<<lbDevice->errorString();
-    qDebug().noquote()<<"printResultsDiag<<"<<lbRequestQjo;
+    // qDebug().noquote()<<"printResultsDiag<<"<<lbRequestQjo;
+
+    if (!(debugMask & (DebugResultsDiag | DebugFullStats))) {
+        return;
+    }
+
+    QString logMessage;
+    QDebug deb(&logMessage);
+    deb.nospace().noquote();
+
+    // 3 бит (4) - Вывод базовой диагностики JSON
+    if (debugMask & DebugResultsDiag) {
+        deb << "Results Diag is: " << lbRequestQjo << "\n";
+    }
+
+    // 4 бит (8) - Вывод полной низкоуровневой статистики
+    if (debugMask & DebugFullStats) {
+        deb << "Response  SHA256 is: " << lbResponseSHA.toHex() << "\n"
+            << "Calculate SHA256 is: " << QCryptographicHash::hash(lbResponseBuffer, QCryptographicHash::Sha256).toHex() << "\n"
+            << "byteCount is: " << byteCount << "\n"
+            << "lenCount is: " << lenCount << "\n"
+            << "lbResponseBuffer (Hex): " << lbResponseBuffer.toHex() << "\n"
+            << "lbDevice->error() << lbDevice->errorString() = " << lbDevice->error() << " " << lbDevice->errorString() << "\n";
+    }
+
+    emit lbDebugMessage(logMessage);
 }
 
 QStringList LBclient::getResults(const QJsonObject &Qjo)

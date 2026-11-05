@@ -90,6 +90,10 @@ void lbconsole::implement()
     parser.addOption(serialPortOption);
     QCommandLineOption baudOption({"b", "baud"}, "Modbus RTU parameters (Format: addr/[baud]/[dataBits]/[parity]/[stopBits]. Only 'addr' is required)", "addr/[9600]/...", "");
     parser.addOption(baudOption);
+    QCommandLineOption lbDebugMaskOption("debug",
+                                         "Debug bitmask: 1=text response, 2=hex response, 4=json diagnostics, 8=full statistics (Default: 1)",
+                                         "mask");
+    parser.addOption(lbDebugMaskOption);
     QCommandLineOption lbTest("test","Logic Box test option","");
     parser.addOption(lbTest);
     parser.process(*app);
@@ -293,13 +297,23 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser,
                           const QCommandLineOption &hostOption,
                           const QCommandLineOption &lbInterfaceOption)
 {
-    // if (parser.isSet("port")) {
-    //     QString portName = parser.value("port");
-    //     int baudRate = parser.value("baud").toInt();
 
-    //     lbc->setSerialAddr(portName, baudRate);
-    //     return;
-    // }
+    if (parser.isSet("debug")) {
+        QString valueStr = parser.value("debug");
+
+        LBclient::DebugMaskBit mask = LBclient::DebugResponseText;
+
+        if (!valueStr.isEmpty()) {
+            bool ok;
+            int parsedMask = parser.value("debug").toInt(&ok, 0);
+            if (ok)
+                mask = static_cast<LBclient::DebugMaskBit>(parsedMask);
+        }
+        lbc->setDebugMask(mask);
+        connect(lbc, &LBclient::lbDebugMessage, this, [](const QString &message){
+            qDebug().noquote() << message;
+        });
+    }
 
     QString host;
     if (parser.isSet(lbMacOption))
