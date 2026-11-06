@@ -49,6 +49,51 @@ private:
     QStringList wrapText(QString text, int width);
     QString formatList(const QList<QStringList> &list);
 
+    template <typename T>
+    bool configureSerial(T *client, const QCommandLineParser &parser){
+        if (!parser.isSet("port")) return false;
+
+        if (!parser.isSet("baud")) {
+            qDebug().noquote() << "Error: When using --port, the --baud option with at least 'addr' is required.";
+            return false;
+        }
+
+        QString portName = parser.value("port");
+        QString baudRaw = parser.value("baud");
+        QStringList parts = baudRaw.split('/');
+
+        if (parts.isEmpty() || baudRaw.isEmpty()) {
+            qDebug().noquote() << "Error: --baud option cannot be empty. Format: addr/[baud]/[dataBits]/[parity]/[stopBits]";
+            return false;
+        }
+
+        bool ok;
+        int addr = parts.at(0).toInt(&ok);
+        if (!ok) {
+            qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
+            return false;
+        }
+
+        switch (parts.size()) {
+        case 1: // Указан только addr
+            client->setSerialAddr(portName, addr);
+            break;
+        case 2: // Указаны addr/baudRate
+            client->setSerialAddr(portName, addr, parts.at(1).toInt());
+            break;
+        case 3: // Указаны addr/baudRate/dataBits
+            client->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt());
+            break;
+        case 4: // Указаны addr/baudRate/dataBits/parity
+            client->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt());
+            break;
+        default: // Указаны все 5 параметров или более (лишние игнорируются)
+            client->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt(), parts.at(4).toInt());
+            break;
+        }
+
+        return true;
+    }
 
 private slots:
     void printOta(const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);

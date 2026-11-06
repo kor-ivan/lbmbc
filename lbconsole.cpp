@@ -269,25 +269,51 @@ void lbconsole::implement()
         }
     }else{
         MBclient *mbc = new MBclient(app);
-        QUrl url = QUrl::fromUserInput(parser.value(hostOption));
-        if (url.port()==-1)
-            url.setPort((QUrl::fromUserInput(DefaultHost)).port());
-        mbc->setTCPaddr(url);
-        if (!parser.isSet(WriteOption)){
-            mbc->setTimeOut(parser.value(timeoutOption).toFloat()*1000);
-            mbc->Execute(parser.value(functionOption).toInt(), parser.value(RegOption).toInt(), parser.value(QuantOption).toInt(), parser.value(MBaddrOption).toInt());
-        }else{
-            mbc->WriteExecute(parser.value(functionOption).toInt(), parser.value(WriteOption).toInt(), parser.value(RegOption).toInt(), parser.value(MBaddrOption).toInt());
+
+        // --- Внедрение логирования для MBclient ---
+        if (parser.isSet("debug")) {
+            QString valueStr = parser.value("debug");
+            LBclient::DebugMaskBit mask = LBclient::DebugResponseText;
+
+            if (!valueStr.isEmpty()) {
+                bool ok;
+                int parsedMask = valueStr.toInt(&ok, 0);
+                if (ok)
+                    mask = static_cast<LBclient::DebugMaskBit>(parsedMask);
+            }
+            mbc->setDebugMask(mask);
+        }
+        // ------------------------------------------
+
+        if (parser.isSet(timeoutOption))
+            mbc->setTimeOut(parser.value(timeoutOption).toFloat() * 1000);
+
+        if (parser.isSet("port")) {
+            if (!configureSerial(mbc, parser)) {
+                delete mbc;
+                emit lbQuit();
+                return;
+            }
+        } else {
+            QUrl url = QUrl::fromUserInput(parser.value(hostOption));
+            if (url.port() == -1) {
+                url.setPort((QUrl::fromUserInput(DefaultHost)).port());
+            }
+            mbc->setTCPaddr(url);
+            mbc->setAddr(parser.value(MBaddrOption).toInt());
+        }
+
+        if (!parser.isSet(WriteOption)) {
+            mbc->Execute(parser.value(functionOption).toInt(),
+                         parser.value(RegOption).toInt(),
+                         parser.value(QuantOption).toInt());
+        } else {
+            mbc->WriteExecute(parser.value(functionOption).toInt(),
+                              parser.value(WriteOption).toInt(),
+                              parser.value(RegOption).toInt());
         }
     }
 }
-
-// void lbconsole::stop()
-// {
-//     emit lbQuit();
-//     // app->quit();
-//     // app->deleteLater();
-// }
 
 void lbconsole::setlbAddr(const QCommandLineParser &parser,
                           LBclient *lbc,
@@ -334,42 +360,8 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser,
         lbc->setTCPaddr(host, QUrl::fromUserInput(DefaultHost).port());
     }
 
-    if (parser.isSet("port")){
-        QString portName = parser.value("port");
-        if (parser.isSet("baud")) {
-            QString baudRaw = parser.value("baud");
-            QStringList parts = baudRaw.split('/');
-            if (parts.isEmpty()) {
-                qDebug().noquote() << "Error: --baud option cannot be empty. Format: addr/[baud]/[dataBits]/[parity]/[stopBits]";
-                return;
-            }
-            bool ok;
-            int addr = parts.at(0).toInt(&ok);
-            if (!ok) {
-                qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
-                return;
-            }
-            switch (parts.size()) {
-            case 1: // Указан только addr
-                lbc->setSerialAddr(portName, addr);
-                break;
-            case 2: // Указаны addr/baudRate
-                lbc->setSerialAddr(portName, addr, parts.at(1).toInt());
-                break;
-            case 3: // Указаны addr/baudRate/dataBits
-                lbc->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt());
-                break;
-            case 4: // Указаны addr/baudRate/dataBits/parity
-                lbc->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt());
-                break;
-            default: // Указаны все 5 параметров или более (лишние игнорируются)
-                lbc->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt(), parts.at(4).toInt());
-                break;
-            }
-        } else {
-            qDebug().noquote() << "Error: When using --port, the --baud option with at least 'addr' is required.";
-        }
-
+    if (configureSerial(lbc, parser)) {
+        return;
     }
 }
 

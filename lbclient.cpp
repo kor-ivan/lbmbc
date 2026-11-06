@@ -880,6 +880,7 @@ void LBclient::setDebugMask(int mask)
     debugMask = static_cast<DebugMaskBit>(mask);
 }
 
+
 QJsonValue LBclient::getJsonValue(QStringList query, const QString lbKey)
 {
     if (lbKey==KeyGet && query.size()>1)
@@ -1079,9 +1080,19 @@ void LBclient::printResponseDiag(const QModbusResponse localMbResponse)
     //qDebug()<<"type = "<<lbReply->type();
     //qDebug()<<"rawResult().isException() = "<<lbReply->rawResult().isException();
     //qDebug()<<"rawResult().isValid() = "<<lbReply->rawResult().isValid();
+    QString logMessage = printResponse(localMbResponse, i, debugMask);
+    if (logMessage.isEmpty()) return;
 
-    if (!(debugMask & (DebugResponseText | DebugResponseHex))) {
-        return;
+    QDebug deb(&logMessage);
+    if (lbDevice)
+        deb << "lbDevice->error()<<lbDevice->errorString() = " << lbDevice->error() << " " << lbDevice->errorString() << "\n";
+    emit lbDebugMessage(logMessage);
+}
+
+QString LBclient::printResponse(const QModbusResponse localMbResponse, int index, DebugMaskBit mask)
+{
+    if (!(mask & (DebugResponseText | DebugResponseHex))) {
+        return QString();
     }
 
     QString logMessage;
@@ -1090,26 +1101,21 @@ void LBclient::printResponseDiag(const QModbusResponse localMbResponse)
 
     QByteArray rawData = localMbResponse.data();
 
-    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " <<<<<<<<<< " << i << " <<<<<<<<<<\n";
+    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " <<<<<<<<<< " << index << " <<<<<<<<<<\n";
 
     // 1 бит - Текстовый ответ
-    if (debugMask & DebugResponseText) {
+    if (mask & DebugResponseText) {
         QByteArray textRaw = rawData;
         QString textData = QString::fromUtf8(textRaw.replace('\0', "").replace('\r', ' '));
-        deb << i << "     lbResponse is : " << textData << "\n";
+        deb << index << "     lbResponse is : " << textData << "\n";
     }
 
     // 2 бит - HEX ответ
-    if (debugMask & DebugResponseHex) {
+    if (mask & DebugResponseHex) {
         QString hexData = rawData.toHex();
-        deb << i << " HEX lbResponse is : " << hexData << "\n";
+        deb << index << " HEX lbResponse is : " << hexData << "\n";
     }
-
-    if (lbDevice) {
-        deb << "lbDevice->error()<<lbDevice->errorString() = " << lbDevice->error() << " " << lbDevice->errorString() << "\n";
-    }
-
-    emit lbDebugMessage(logMessage);
+    return logMessage;
 }
 
 void LBclient::printRequestDiag(const QModbusRequest localMbRequest)
@@ -1118,9 +1124,15 @@ void LBclient::printRequestDiag(const QModbusRequest localMbRequest)
     // qDebug().noquote()<<i<<"     lbRequest is : "<<localMbRequest.data();
     // qDebug().noquote()<<i<<" HEX lbRequest is : "<<localMbRequest.data().toHex();
     //qDebug()<<i<<" sendRawRequest....";
+    QString logMessage = printRequest(localMbRequest, i, debugMask);
+    if (logMessage.isEmpty()) return;
+    emit lbDebugMessage(logMessage);
+}
 
-    if (!(debugMask & (DebugResponseText | DebugResponseHex))) {
-        return;
+QString LBclient::printRequest(const QModbusRequest localMbRequest, int index, DebugMaskBit mask)
+{
+    if (!(mask & (DebugResponseText | DebugResponseHex))) {
+        return QString();
     }
 
     QString logMessage;
@@ -1129,22 +1141,21 @@ void LBclient::printRequestDiag(const QModbusRequest localMbRequest)
 
     QByteArray rawData = localMbRequest.data();
 
-    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " >>>>>>>>> " << i << " >>>>>>>>>\n";
+    deb << QTime::currentTime().toString("hh:mm:ss.zzz") << " >>>>>>>>> " << index << " >>>>>>>>>\n";
 
     // 1 бит (DebugResponseText) - Текстовое представление запроса
-    if (debugMask & DebugResponseText) {
+    if (mask & DebugResponseText) {
         QByteArray textRaw = rawData;
         QString textData = QString::fromUtf8(textRaw.replace('\0', "").replace('\r', ' '));
-        deb << i << "     lbRequest is : " <<  textData << "\n";
+        deb << index << "     lbRequest is : " <<  textData << "\n";
     }
 
     // 2 бит (DebugResponseHex) - HEX представление запроса
-    if (debugMask & DebugResponseHex) {
+    if (mask & DebugResponseHex) {
         QString hexData = rawData.toHex();
-        deb << i << " HEX lbRequest is : " << hexData << "\n";
+        deb << index << " HEX lbRequest is : " << hexData << "\n";
     }
-
-    emit lbDebugMessage(logMessage);
+    return logMessage;
 }
 
 void LBclient::printResultsDiag()

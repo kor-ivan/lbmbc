@@ -79,6 +79,9 @@ public:
 
     void setDebugMask(int mask);
 
+    static QString printResponse(const QModbusResponse localMbResponse, int index, DebugMaskBit mask);
+    static QString printRequest(const QModbusRequest localMbRequest, int index, DebugMaskBit mask);
+
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
     void ExecuteCompletedJson (const QString& lbhost, const QJsonObject& Qjo, const QString& message, const QModbusDevice::Error error);
