@@ -38,7 +38,7 @@ public:
     virtual ~LBclient();
     // void setTCPaddr(const QUrl);
     bool setTCPaddr(const QString addr, const int port, const QString iface="");
-    bool setSerialAddr(const QString &portName, const int addr, int baudRate = 9600, int dataBits = 8, int parity = 0, int stopBits = 1);
+    bool setSerialAddr(const QString &portName, const int addr, int baudRate = 9600, int dataBits = 8, bool parity = false, int stopBits = 1);
     void setlbHost(const QString host, const QString filename, const QString iface="");
     void Execute();
     // void extracted(const QStringList &qstr);
@@ -81,6 +81,8 @@ public:
 
     static QString printResponse(const QModbusResponse localMbResponse, int index, DebugMaskBit mask);
     static QString printRequest(const QModbusRequest localMbRequest, int index, DebugMaskBit mask);
+
+    void setCustomTimeout(int newCustomTimeout);
 
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
@@ -163,6 +165,7 @@ private:
     const int lbFbootTimeout = 8000;
     const qsizetype xlblogTimeout = 0x14;
     const int lbDefaultRtuTimeout = 4000;
+    int customTimeout = 0;
 
     int i = 0;
     int byteCount = initByteCount;

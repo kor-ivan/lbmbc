@@ -92,7 +92,7 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
     return false;
 }
 
-bool LBclient::setSerialAddr(const QString &portName, const int addr, int baudRate, int dataBits, int parity, int stopBits)
+bool LBclient::setSerialAddr(const QString &portName, const int addr, int baudRate, int dataBits, bool parity, int stopBits)
 {
     if (lbDevice){
         delete lbDevice;
@@ -337,6 +337,8 @@ void LBclient::Run()
             lbDevice->setTimeout(lbDefaultRtuTimeout);
         break;
     }
+    if (customTimeout != 0)
+        lbDevice->setTimeout(customTimeout);
     lbRequestIterator = lbVectorRequest.begin();
     SendRequest();
 }
@@ -627,6 +629,16 @@ void LBclient::isTimeout()
         SendRequest();
     }else
         Execute();
+}
+
+void LBclient::setCustomTimeout(int newCustomTimeout)
+{
+    customTimeout = newCustomTimeout;
+}
+
+void LBclient::setCustomAddr(const int newAddr)
+{
+
 }
 
 bool LBclient::getMulpipleRequest() const
