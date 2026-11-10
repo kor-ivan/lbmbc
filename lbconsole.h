@@ -48,29 +48,15 @@ private:
     void printlbVarMap(const QMap<QString, lbyaml::lbvar> &lbVarMap);
     QStringList wrapText(QString text, int width);
     QString formatList(const QList<QStringList> &list);
+    bool parseSerialArgs(const QCommandLineParser &parser, QString &portName, int &addr, QStringList &parts);
 
     template <typename T>
     bool configureSerial(T *client, const QCommandLineParser &parser){
-        if (!parser.isSet("port")) return false;
+        QString portName;
+        int addr = 0;
+        QStringList parts;
 
-        if (!parser.isSet("baud")) {
-            qDebug().noquote() << "Error: When using --port, the --baud option with at least 'addr' is required.";
-            return false;
-        }
-
-        QString portName = parser.value("port");
-        QString baudRaw = parser.value("baud");
-        QStringList parts = baudRaw.split('/');
-
-        if (parts.isEmpty() || baudRaw.isEmpty()) {
-            qDebug().noquote() << "Error: --baud option cannot be empty. Format: addr/[baud]/[dataBits]/[parity]/[stopBits]";
-            return false;
-        }
-
-        bool ok;
-        int addr = parts.at(0).toInt(&ok);
-        if (!ok) {
-            qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
+        if (!parseSerialArgs(parser, portName, addr, parts)) {
             return false;
         }
 

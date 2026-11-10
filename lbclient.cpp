@@ -638,7 +638,8 @@ void LBclient::setCustomTimeout(int newCustomTimeout)
 
 void LBclient::setCustomAddr(const int newAddr)
 {
-
+    if (newAddr > 0 && newAddr < 255)
+        lbAddr = newAddr;
 }
 
 bool LBclient::getMulpipleRequest() const

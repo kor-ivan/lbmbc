@@ -83,6 +83,7 @@ public:
     static QString printRequest(const QModbusRequest localMbRequest, int index, DebugMaskBit mask);
 
     void setCustomTimeout(int newCustomTimeout);
+    void setCustomAddr(const int newAddr);
 
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);

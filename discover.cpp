@@ -1,6 +1,5 @@
 #include "discover.h"
 
-
 discover::discover(QObject *parent)
     : QObject{parent}
 {
@@ -83,23 +82,35 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
                                          RtuSettingsIterator->stopBits);
     lbMapIterator.value()->setCustomTimeout(timeOut);
 
-    connect(lbMapIterator.value(), &LBclient::ExecuteCompletedJson, this, [this, &endAddr, &startAddr, &lbMapIterator, &rtuConfig]
+    auto insertRtuAddr = [this](const ModbusRtuSettings& settings){
+        ModbusRtuSettings rtu = settings;
+        rtu.addr = currentAddr;
+        return rtu;
+    };
+
+    connect(lbMapIterator.value(), &LBclient::ExecuteCompletedJson, this,
+            [this, endAddr, startAddr, lbMapIterator, rtuConfig, insertRtuAddr]
             (const QString &lbhost, const QJsonObject &Qjo, const QString &message, const QModbusDevice::Error error){
+        float responseDelayMs = static_cast<float>(rtuTimer.nsecsElapsed()) / 1000000.0f;
         if (error == QModbusDevice::NoError){
             lbinfo inf;
-            inf.ipv4 = Qjo.value("get").toObject().value("sys.ipaddr").toString();
-            inf.type = Qjo.value("get").toObject().value("sys.devtype").toString();
-            inf.mac = addColonsToMac(Qjo.value("get").toObject().value("sys.macaddr").toString());
+            inf.ipv4 = Qjo.value("sys.ipaddr").toString();
+            inf.type = Qjo.value("sys.devtype").toString();
+            inf.mac = addColonsToMac(Qjo.value("sys.macaddr").toString());
             QString ipv6 = lbyaml::MacToIPv6(inf.mac);
-            ModbusRtuSettings rtu = *RtuSettingsIterator;
-            rtu.addr = currentAddr;
-            inf.rtuSettings = rtu;
+            inf.rtuSettings = insertRtuAddr(*RtuSettingsIterator);
+            inf.delay.append(responseDelayMs);
+            inf.ifindex.append(inf.rtuSettings.portName);
             lbDiscoverMap.insert(ipv6, inf);
+            emit rtuResponseReceived(inf);
         }
         if (currentAddr <= endAddr){
             currentAddr++;
             lbMapIterator.value()->setCustomAddr(currentAddr);
+            emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
+            rtuTimer.start();
             lbMapIterator.value()->Execute();
+
         }else{
             RtuSettingsIterator++;
             currentAddr = startAddr;
@@ -110,6 +121,8 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
                                                      RtuSettingsIterator->dataBits,
                                                      RtuSettingsIterator->parity,
                                                      RtuSettingsIterator->stopBits);
+                emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
+                rtuTimer.start();
                 lbMapIterator.value()->Execute();
             }else{
                 lbMapIterator.value()->lbDisconnectDevice();
@@ -120,7 +133,7 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
             (const QString &lbhost, const QString &message, const QModbusDevice::Error error){
         getResults();
     });
-
+    emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
     lbMapIterator.value()->Execute();
 }
 
@@ -157,12 +170,7 @@ QList<QNetworkInterface> discover::getlbIfDiscover()
 
 void discover::getResults()
 {
-    // qDebug() << "getResults" << ScannCount << lbcCount;
     if (ScannCount == 0 && lbcCount == 0){
-        // qDebug()<<lbDiscoverMap;
-        // foreach (const auto i, lbDiscoverMap) {
-        //     qDebug()<<i;
-        // }
         emit discoverCompleted(lbDiscoverMap, NoError, NoErrorStr);
         this->deleteLater();
     }
@@ -213,7 +221,7 @@ void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
     if (!lbDiscoverMap.contains(from)){
         lbinfo inf;
         inf.delay.append(delaytofloat(rttmcs));
-        inf.ifindex.append(ifindex);
+        inf.ifindex.append(QString::number(ifindex));
         lbDiscoverMap.insert(from, inf);
         auto lbMapIterator = lbcMap.insert(from,
             new LBclient(this, {{"get", "sys.ipaddr", "sys.devtype", "sys.macaddr"},{"getconf"}},LBclient::MaintainTCP));
@@ -227,7 +235,7 @@ void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
         lbFinishMap.insert(from, false);
     }else{
         lbDiscoverMap[from].delay.append(delaytofloat(rttmcs));
-        lbDiscoverMap[from].ifindex.append(ifindex);
+        lbDiscoverMap[from].ifindex.append(QString::number(ifindex));
     }
 }
 
@@ -258,6 +266,9 @@ void discover::isExecuteCompletedJson(const QString &lbhost, const QJsonObject &
         inf.mac = addColonsToMac(Qjo.value("get").toObject().value("sys.macaddr").toString());
         if (Qjo.value("getconf").toObject().find("hostname")->type()==QJsonValue::String)
             inf.name = Qjo.value("getconf").toObject().find("hostname")->toString();
+        if (Qjo.value("getconf").toObject().value("slot-1").toObject().value("modbus_server").toObject().find("rtu_addr")->type()==QJsonValue::String){
+            inf.rtuSettings.addr = Qjo.value("getconf").toObject().value("slot-1").toObject().value("modbus_server").toObject().find("rtu_addr")->toString().toInt();
+        }
         lbDiscoverMap.insert(lbhost, inf);
         // qDebug() << lbcCount << "Запросы Modbus (107) завершены по адресу" << lbhost;
     }
@@ -288,6 +299,8 @@ QDebug operator<<(QDebug out, const discover::lbinfo& inf){
     foreach (const auto i, inf.delay) {
         out<<"delay ="<<i<<"ms";
     }
+    if (inf.rtuSettings.addr > 0)
+        out << "rtu_addr =" << inf.rtuSettings.addr;
     return out;
 }
 
@@ -297,7 +310,7 @@ QString discover::lbinfo::toString() const
     if (btn) str.append("*");
     str += QString("%1 %2 %3 %4 ").arg(name, type, mac, ipv4);
     QStringList ifindexStr;
-    for (int i : ifindex) ifindexStr << "IF =" << QString::number(i);
+    for (const auto& i : ifindex) ifindexStr << "IF =" << i;
     str += ifindexStr.join(" ") + " ";
     QStringList delayStr;
     for (float d : delay) delayStr<<"delay ="<<QString::number(d)<<"ms";
