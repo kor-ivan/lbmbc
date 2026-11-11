@@ -45,7 +45,7 @@ void lbconsole::implement()
     parser.addPositionalArgument(LBclient::KeyNofboot, "Remove fboot from Logic Box PLC");
     parser.addPositionalArgument(LBclient::KeyLog, "Requesting a log from Logic Box PLC, may be use the options a, e, f, i, r, s, v (by default, only a is used). For example: log a10f");
     parser.addPositionalArgument(LBclient::KeyFsformat, "formats the file system PLC");
-    parser.addPositionalArgument("discover", "Sending ICMPv6 discover request or an RTU search (RTU requires options -p, -b, -t");
+    parser.addPositionalArgument("discover", "Sending ICMPv6 discover request or an RTU search (RTU requires options -p, -b");
     parser.addPositionalArgument("ifconfig", "Information about network interfaces available for ICMPv6 requests");
     parser.addPositionalArgument("comconfig", "Information about available serial (COM) ports, specifically USB-to-Serial converters");
     parser.addPositionalArgument("mactoip", "Converts a mac address to an ipv6 address using EUI-64");
@@ -114,15 +114,12 @@ void lbconsole::implement()
                     }
                     );
             if (parser.isSet(serialPortOption) ||
-                parser.isSet(baudOption) ||
-                parser.isSet(timeoutOption)){
+                parser.isSet(baudOption)){
                 if (parser.isSet(serialPortOption) &&
-                    parser.isSet(baudOption) &&
-                    parser.isSet(timeoutOption)){
+                    parser.isSet(baudOption)){
                     connect(lbd, &discover::SendingRtuResponse, this, [this]
                             (const discover::ModbusRtuSettings& rtu){
                                 qDebug() << "Запрос отправлен на:" << rtu.addr;
-
                             });
                     connect(lbd, &discover::rtuResponseReceived, this, [this]
                             (const discover::lbinfo& inf){
@@ -157,7 +154,7 @@ void lbconsole::implement()
                                     parser.value(QuantOption).toInt(),
                                     parser.value(timeoutOption).toFloat()*1000);
                 }else{
-                    qDebug() << "To send an RTU search, you need to specify all the options -p, -b, -t";
+                    qDebug() << "To send an RTU search, you need to specify all the options -p, -b";
                     emit lbQuit();
                 }
             }else{

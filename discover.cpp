@@ -264,10 +264,19 @@ void discover::isExecuteCompletedJson(const QString &lbhost, const QJsonObject &
         inf.ipv4 = Qjo.value("get").toObject().value("sys.ipaddr").toString();
         inf.type = Qjo.value("get").toObject().value("sys.devtype").toString();
         inf.mac = addColonsToMac(Qjo.value("get").toObject().value("sys.macaddr").toString());
-        if (Qjo.value("getconf").toObject().find("hostname")->type()==QJsonValue::String)
-            inf.name = Qjo.value("getconf").toObject().find("hostname")->toString();
-        if (Qjo.value("getconf").toObject().value("slot-1").toObject().value("modbus_server").toObject().find("rtu_addr")->type()==QJsonValue::String){
-            inf.rtuSettings.addr = Qjo.value("getconf").toObject().value("slot-1").toObject().value("modbus_server").toObject().find("rtu_addr")->toString().toInt();
+        auto jit = Qjo.value("getconf").toObject().find("hostname");
+        if (jit->type()==QJsonValue::String)
+            inf.name = jit->toString();
+        jit = Qjo.value("getconf").toObject().value("slot-1").toObject().value("modbus_server").toObject().find("rtu_addr");
+        if (jit->type()==QJsonValue::String)
+            inf.rtuSettings.addr = jit->toString().toInt();
+        jit = Qjo.value("getconf").toObject().value("slot-1").toObject().find("rs485");
+        if (jit->isObject()){
+            inf.rtuSettings.baudRate = jit->toObject().value("speed").toString().toInt();
+            inf.rtuSettings.dataBits = jit->toObject().value("bits").toString().toInt();
+            inf.rtuSettings.parity = (jit->toObject().value("parity").toString().compare("Y", Qt::CaseInsensitive) == 0);
+            inf.rtuSettings.stopBits = jit->toObject().value("stop_bits").toString().toInt();
+            qDebug() << inf.rtuSettings.baudRate << inf.rtuSettings.dataBits << inf.rtuSettings.parity << inf.rtuSettings.stopBits;
         }
         lbDiscoverMap.insert(lbhost, inf);
         // qDebug() << lbcCount << "Запросы Modbus (107) завершены по адресу" << lbhost;
@@ -300,7 +309,12 @@ QDebug operator<<(QDebug out, const discover::lbinfo& inf){
         out<<"delay ="<<i<<"ms";
     }
     if (inf.rtuSettings.addr > 0)
-        out << "rtu_addr =" << inf.rtuSettings.addr;
+        out << QString("RTU: %1/%2/%3/%4/%5").arg(inf.rtuSettings.addr)
+                   .arg(inf.rtuSettings.baudRate)
+                   .arg(inf.rtuSettings.dataBits)
+                   .arg((inf.rtuSettings.parity)?"Y":"N")
+                   .arg(inf.rtuSettings.stopBits);
+        // out << "rtu_addr =" << inf.rtuSettings.addr;
     return out;
 }
 
