@@ -1,4 +1,5 @@
 #include "discover.h"
+#include <QSerialPort>
 
 discover::discover(QObject *parent)
     : QObject{parent}
@@ -264,19 +265,40 @@ void discover::isExecuteCompletedJson(const QString &lbhost, const QJsonObject &
         inf.ipv4 = Qjo.value("get").toObject().value("sys.ipaddr").toString();
         inf.type = Qjo.value("get").toObject().value("sys.devtype").toString();
         inf.mac = addColonsToMac(Qjo.value("get").toObject().value("sys.macaddr").toString());
-        auto jit = Qjo.value("getconf").toObject().find("hostname");
-        if (jit->type()==QJsonValue::String)
+
+        QJsonObject jObj = Qjo.value("getconf").toObject();
+        auto jit = jObj.find("hostname");
+        if (jit != jObj.end() && jit->isString()) {
             inf.name = jit->toString();
-        jit = Qjo.value("getconf").toObject().value("slot-1").toObject().value("modbus_server").toObject().find("rtu_addr");
-        if (jit->type()==QJsonValue::String)
-            inf.rtuSettings.addr = jit->toString().toInt();
-        jit = Qjo.value("getconf").toObject().value("slot-1").toObject().find("rs485");
-        if (jit->isObject()){
-            inf.rtuSettings.baudRate = jit->toObject().value("speed").toString().toInt();
-            inf.rtuSettings.dataBits = jit->toObject().value("bits").toString().toInt();
-            inf.rtuSettings.parity = (jit->toObject().value("parity").toString().compare("Y", Qt::CaseInsensitive) == 0);
-            inf.rtuSettings.stopBits = jit->toObject().value("stop_bits").toString().toInt();
-            qDebug() << inf.rtuSettings.baudRate << inf.rtuSettings.dataBits << inf.rtuSettings.parity << inf.rtuSettings.stopBits;
+        }
+
+        jObj = Qjo.value("getconf").toObject()
+                   .value("slot-1").toObject()
+                   .value("modbus_server").toObject();
+        jit = jObj.find("rtu_addr");
+        if (jit != jObj.end() && jit->isString()) { // Сначала проверяем end(), потом type()/isString()
+            bool ok = false;
+            int addr = jit->toString().toInt(&ok, 0);
+            if (ok)
+                inf.rtuSettings.addr = addr;
+        }
+
+        jObj = Qjo.value("getconf").toObject().value("slot-1").toObject();
+        jit = jObj.find("rs485");
+        if (jit != jObj.end() && jit->isObject()){
+            const QJsonObject rtuObj = jit->toObject();
+            inf.rtuSettings.baudRate = rtuObj.value("speed").toString().toInt();
+            inf.rtuSettings.dataBits = rtuObj.value("bits").toString().toInt();
+            inf.rtuSettings.stopBits = rtuObj.value("stop_bits").toString().toInt();
+            const QString parityStr = rtuObj.value("parity").toString().trimmed().toLower();
+            if (parityStr == "e") {
+                inf.rtuSettings.parity = QSerialPort::EvenParity; // 2
+            } else if (parityStr == "o") {
+                inf.rtuSettings.parity = QSerialPort::OddParity;  // 3
+            } else {
+                // По умолчанию или при "n" ставим NoParity
+                inf.rtuSettings.parity = QSerialPort::NoParity;   // 0
+            }
         }
         lbDiscoverMap.insert(lbhost, inf);
         // qDebug() << lbcCount << "Запросы Modbus (107) завершены по адресу" << lbhost;
@@ -309,12 +331,13 @@ QDebug operator<<(QDebug out, const discover::lbinfo& inf){
         out<<"delay ="<<i<<"ms";
     }
     if (inf.rtuSettings.addr > 0)
-        out << QString("RTU: %1/%2/%3/%4/%5").arg(inf.rtuSettings.addr)
+        out << QString("RTU: %1/%2/%3/%4/%5")
+                   .arg(inf.rtuSettings.addr)
                    .arg(inf.rtuSettings.baudRate)
                    .arg(inf.rtuSettings.dataBits)
-                   .arg((inf.rtuSettings.parity)?"Y":"N")
+                   .arg(inf.rtuSettings.parity == QSerialPort::EvenParity ? "E" :
+                            inf.rtuSettings.parity == QSerialPort::OddParity  ? "O" : "N")
                    .arg(inf.rtuSettings.stopBits);
-        // out << "rtu_addr =" << inf.rtuSettings.addr;
     return out;
 }
 

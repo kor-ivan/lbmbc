@@ -22,7 +22,7 @@ public:
         int addr = -1;
         int baudRate = 9600;
         int dataBits = 8;
-        bool parity = false;
+        int parity = 0;
         int stopBits = 1;
     };
     void executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int startAddr, const int endAddr, const int timeOut);

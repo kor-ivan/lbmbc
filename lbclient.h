@@ -38,7 +38,7 @@ public:
     virtual ~LBclient();
     // void setTCPaddr(const QUrl);
     bool setTCPaddr(const QString addr, const int port, const QString iface="");
-    bool setSerialAddr(const QString &portName, const int addr, int baudRate = 9600, int dataBits = 8, bool parity = false, int stopBits = 1);
+    bool setSerialAddr(const QString &portName, const int addr, int baudRate = 9600, int dataBits = 8, int parity = false, int stopBits = 1);
     void setlbHost(const QString host, const QString filename, const QString iface="");
     void Execute();
     // void extracted(const QStringList &qstr);

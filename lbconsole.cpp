@@ -4,6 +4,7 @@
 #include "lbprocess.h"
 #include <iostream>
 #include "mbclient.h"
+#include <QSerialPort>
 
 // #include "icmp6scanner.h"
 #ifdef Q_OS_LINUX
@@ -529,6 +530,33 @@ bool lbconsole::parseSerialArgs(const QCommandLineParser &parser, QString &portN
     if (!ok) {
         qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
         return false;
+    }
+
+    if (parts.size() >= 4) {
+        const QString parityStr = parts.at(3).trimmed().toLower();
+        int parityVal = -1;
+
+        if (parityStr == "n") {
+            parityVal = QSerialPort::NoParity;   // 0
+        } else if (parityStr == "e") {
+            parityVal = QSerialPort::EvenParity; // 2
+        } else if (parityStr == "o") {
+            parityVal = QSerialPort::OddParity;  // 3
+        } else {
+            // Опционально: проверка числового ввода (0, 2, 3)
+            int val = parityStr.toInt(&ok);
+            if (ok && (val == QSerialPort::NoParity || val == QSerialPort::EvenParity || val == QSerialPort::OddParity)) {
+                parityVal = val;
+            }
+        }
+
+        if (parityVal == -1) {
+            qDebug().noquote() << "Error: Invalid parity value. Use 'n' (None), 'e' (Even), or 'o' (Odd).";
+            return false;
+        }
+
+        // Перезаписываем элемент в списке числовым значением
+        parts[3] = QString::number(parityVal);
     }
 
     return true;

@@ -92,7 +92,7 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
     return false;
 }
 
-bool LBclient::setSerialAddr(const QString &portName, const int addr, int baudRate, int dataBits, bool parity, int stopBits)
+bool LBclient::setSerialAddr(const QString &portName, const int addr, int baudRate, int dataBits, int parity, int stopBits)
 {
     if (lbDevice){
         delete lbDevice;
