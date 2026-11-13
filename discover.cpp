@@ -73,7 +73,7 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
     currentAddr = startAddr;
 
     auto lbMapIterator = lbcMap.insert(QString(),
-            new LBclient(this, {{"get", "sys.ipaddr", "sys.devtype", "sys.macaddr"}}, LBclient::MaintainTCP));
+            new LBclient(this, {{"get", "sys.ipaddr", "sys.devtype", "sys.macaddr", "sys.btnage"}}, LBclient::MaintainTCP));
 
     lbMapIterator.value()->setSerialAddr(RtuSettingsIterator->portName,
                                          currentAddr,
@@ -98,6 +98,9 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
             inf.ipv4 = Qjo.value("sys.ipaddr").toString();
             inf.type = Qjo.value("sys.devtype").toString();
             inf.mac = addColonsToMac(Qjo.value("sys.macaddr").toString());
+            auto btn = Qjo.value("sys.btnage").toString().toDouble();
+            if (btn!=-1 && btn<60)
+                inf.btn = true;
             QString ipv6 = lbyaml::MacToIPv6(inf.mac);
             inf.rtuSettings = insertRtuAddr(*RtuSettingsIterator);
             inf.delay.append(responseDelayMs);

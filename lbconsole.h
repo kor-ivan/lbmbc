@@ -31,6 +31,7 @@ private:
     const QString DefaultInterface = "0";
     const QString DefaultFileName = "";
     const QString DefaultBaund = "9600";
+    const int DefaultBeginerRtuAddr = 1;
 
     QCoreApplication* app = nullptr;
 
@@ -48,7 +49,7 @@ private:
     void printlbVarMap(const QMap<QString, lbyaml::lbvar> &lbVarMap);
     QStringList wrapText(QString text, int width);
     QString formatList(const QList<QStringList> &list);
-    bool parseSerialArgs(const QCommandLineParser &parser, QString &portName, int &addr, QStringList &parts);
+    bool parseSerialArgs(const QCommandLineParser &parser, QString &portName, int &addr, QStringList &parts, bool missBound = false);
 
     template <typename T>
     bool configureSerial(T *client, const QCommandLineParser &parser){

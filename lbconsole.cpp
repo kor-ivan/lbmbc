@@ -114,10 +114,8 @@ void lbconsole::implement()
                         }
                     }
                     );
-            if (parser.isSet(serialPortOption) ||
-                parser.isSet(baudOption)){
-                if (parser.isSet(serialPortOption) &&
-                    parser.isSet(baudOption)){
+            if (parser.isSet(serialPortOption)){
+                if (parser.isSet(serialPortOption)){
                     connect(lbd, &discover::SendingRtuResponse, this, [this]
                             (const discover::ModbusRtuSettings& rtu){
                                 qDebug() << "Запрос отправлен на:" << rtu.addr;
@@ -129,25 +127,30 @@ void lbconsole::implement()
                                     "RTT:" << inf.delay.value(0) << "мс";
                             });
                     QString portName;
-                    int addr = 0;
+                    int addr = DefaultBeginerRtuAddr;
                     QStringList parts;
 
-                    if (!parseSerialArgs(parser, portName, addr, parts)) {
+                    if (!parseSerialArgs(parser, portName, addr, parts, !parser.isSet("baud"))) {
                         emit lbQuit();
                     }
+
                     discover::ModbusRtuSettings rtu;
                     rtu.portName = portName;
-                    switch (parts.size()) {
-                    case 5:
-                        rtu.stopBits = parts.at(4).toInt();
-                    case 4:
-                        rtu.parity = parts.at(3).toInt();
-                    case 3:
-                        rtu.dataBits = parts.at(2).toInt();
-                    case 2:
-                        rtu.baudRate = parts.at(1).toInt();
-                    default:
-                        break;
+
+                    if (parser.isSet(baudOption))
+                    {
+                        switch (parts.size()) {
+                        case 5:
+                            rtu.stopBits = parts.at(4).toInt();
+                        case 4:
+                            rtu.parity = parts.at(3).toInt();
+                        case 3:
+                            rtu.dataBits = parts.at(2).toInt();
+                        case 2:
+                            rtu.baudRate = parts.at(1).toInt();
+                        default:
+                            break;
+                        }
                     }
 
                     lbd->executeRtu({rtu},
@@ -155,7 +158,7 @@ void lbconsole::implement()
                                     parser.value(QuantOption).toInt(),
                                     parser.value(timeoutOption).toFloat()*1000);
                 }else{
-                    qDebug() << "To send an RTU search, you need to specify all the options -p, -b";
+                    qDebug() << "To send an RTU search, you need to specify all the options -p";
                     emit lbQuit();
                 }
             }else{
@@ -507,56 +510,59 @@ QString lbconsole::formatList(const QList<QStringList> &list)
     return groups.join(" ");
 }
 
-bool lbconsole::parseSerialArgs(const QCommandLineParser &parser, QString &portName, int &addr, QStringList &parts)
+bool lbconsole::parseSerialArgs(const QCommandLineParser &parser, QString &portName, int &addr, QStringList &parts, bool missBound)
 {
     if (!parser.isSet("port")) return false;
-
-    if (!parser.isSet("baud")) {
-        qDebug().noquote() << "Error: When using --port, the --baud option with at least 'addr' is required.";
-        return false;
-    }
-
     portName = parser.value("port");
-    QString baudRaw = parser.value("baud");
-    parts = baudRaw.split('/');
 
-    if (parts.isEmpty() || baudRaw.isEmpty()) {
-        qDebug().noquote() << "Error: --baud option cannot be empty. Format: addr/[baud]/[dataBits]/[parity]/[stopBits]";
-        return false;
-    }
-
-    bool ok;
-    addr = parts.at(0).toInt(&ok);
-    if (!ok) {
-        qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
-        return false;
-    }
-
-    if (parts.size() >= 4) {
-        const QString parityStr = parts.at(3).trimmed().toLower();
-        int parityVal = -1;
-
-        if (parityStr == "n") {
-            parityVal = QSerialPort::NoParity;   // 0
-        } else if (parityStr == "e") {
-            parityVal = QSerialPort::EvenParity; // 2
-        } else if (parityStr == "o") {
-            parityVal = QSerialPort::OddParity;  // 3
-        } else {
-            // Опционально: проверка числового ввода (0, 2, 3)
-            int val = parityStr.toInt(&ok);
-            if (ok && (val == QSerialPort::NoParity || val == QSerialPort::EvenParity || val == QSerialPort::OddParity)) {
-                parityVal = val;
-            }
-        }
-
-        if (parityVal == -1) {
-            qDebug().noquote() << "Error: Invalid parity value. Use 'n' (None), 'e' (Even), or 'o' (Odd).";
+    if (!missBound)
+    {
+        if (!parser.isSet("baud")) {
+            qDebug().noquote() << "Error: When using --port, the --baud option with at least 'addr' is required.";
             return false;
         }
 
-        // Перезаписываем элемент в списке числовым значением
-        parts[3] = QString::number(parityVal);
+        QString baudRaw = parser.value("baud");
+        parts = baudRaw.split('/');
+
+        if (parts.isEmpty() || baudRaw.isEmpty()) {
+            qDebug().noquote() << "Error: --baud option cannot be empty. Format: addr/[baud]/[dataBits]/[parity]/[stopBits]";
+            return false;
+        }
+
+        bool ok;
+        addr = parts.at(0).toInt(&ok);
+        if (!ok) {
+            qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
+            return false;
+        }
+
+        if (parts.size() >= 4) {
+            const QString parityStr = parts.at(3).trimmed().toLower();
+            int parityVal = -1;
+
+            if (parityStr == "n") {
+                parityVal = QSerialPort::NoParity;   // 0
+            } else if (parityStr == "e") {
+                parityVal = QSerialPort::EvenParity; // 2
+            } else if (parityStr == "o") {
+                parityVal = QSerialPort::OddParity;  // 3
+            } else {
+                // Опционально: проверка числового ввода (0, 2, 3)
+                int val = parityStr.toInt(&ok);
+                if (ok && (val == QSerialPort::NoParity || val == QSerialPort::EvenParity || val == QSerialPort::OddParity)) {
+                    parityVal = val;
+                }
+            }
+
+            if (parityVal == -1) {
+                qDebug().noquote() << "Error: Invalid parity value. Use 'n' (None), 'e' (Even), or 'o' (Odd).";
+                return false;
+            }
+
+            // Перезаписываем элемент в списке числовым значением
+            parts[3] = QString::number(parityVal);
+        }
     }
 
     return true;
