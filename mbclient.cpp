@@ -10,6 +10,7 @@ MBclient::MBclient(QCoreApplication *a) {
 }
 MBclient::~MBclient()
 {
+    clearReply();
     if (modbusDevice){
         modbusDevice->disconnectDevice();
         qDebug()<<"...... disconnect";
@@ -22,20 +23,19 @@ MBclient::~MBclient()
 void MBclient::Execute(){
     modbusDevice->connectDevice();
 }
-void MBclient::Execute(int f, int reg, int q, int a){
-    modbusDevice->connectDevice();
+void MBclient::Execute(int f, int reg, int q){
     function = f;
     MBreg = reg;
     quant = q;
-    MBaddr = a;
-}
-void MBclient::WriteExecute(int f, int v, int reg, int a){
-    WriteFlag = true;
+    // MBaddr = a;
     Execute();
+}
+void MBclient::WriteExecute(int f, int v, int reg){
+    WriteFlag = true;
     function = f;
     WriteValue = v;
     MBreg = reg;
-    MBaddr = a;
+    Execute();
 }
 void MBclient::isConnected(QModbusDevice::State){
     qDebug()<<modbusDevice->state()<<modbusDevice->error()<<modbusDevice->errorString();
@@ -49,7 +49,7 @@ void MBclient::isConnected(QModbusDevice::State){
         break;
     case QModbusDevice::UnconnectedState:
         qDebug()<<"...... Stoping";
-        //disconnect(reply,SIGNAL(finished()),this,SLOT(isReadFinish()));
+        clearReply();
         modbusDevice->disconnect();
         modbusDevice->disconnectDevice();
         app->quit();
@@ -60,15 +60,50 @@ void MBclient::isConnected(QModbusDevice::State){
 }
 void MBclient::ReadHolding(){
     if (modbusDevice->state() == QModbusDevice::ConnectedState){
-        reply = modbusDevice->sendReadRequest(readRequest(), MBaddr);
+        clearReply();
+
+        QByteArray pduPayload;
+        QDataStream stream(&pduPayload, QIODevice::WriteOnly);
+        stream << static_cast<quint16>(MBreg) << static_cast<quint16>(quant);
+        QModbusRequest request(QModbusPdu::FunctionCode(function), pduPayload);
+        QString logMessage = LBclient::printRequest(request, packetIndex, debugMask);
+        if (!logMessage.isEmpty())
+            qDebug().noquote() << logMessage;
+
+        reply = modbusDevice->sendReadRequest(readRequest(), serverAddress);
         connect(reply,SIGNAL(finished()),this,SLOT(isReadFinish()));
     }
 }
 void MBclient::WriteRegisters(){
     if (modbusDevice->state() == QModbusDevice::ConnectedState){
-        reply = modbusDevice->sendWriteRequest(writeRequest(), MBaddr);
+        clearReply();
+
+        QModbusDataUnit dataUnit = writeRequest();
+        quint16 valueToWrite = dataUnit.values().isEmpty() ? 0 : dataUnit.values().at(0);
+        QByteArray pduPayload;
+        QDataStream stream(&pduPayload, QIODevice::WriteOnly);
+        stream << static_cast<quint16>(MBreg) << valueToWrite;
+        QModbusRequest request(QModbusPdu::FunctionCode(function), pduPayload);
+        QString logMessage = LBclient::printRequest(request, packetIndex, debugMask);
+        if (!logMessage.isEmpty())
+            qDebug().noquote() << logMessage;
+
+        reply = modbusDevice->sendWriteRequest(writeRequest(), serverAddress);
         connect(reply,SIGNAL(finished()),this,SLOT(isWriteFinish()));
     }
+}
+
+void MBclient::clearReply()
+{
+    if (reply) {
+        reply->deleteLater();
+        reply = nullptr;
+    }
+}
+
+void MBclient::setDebugMask(LBclient::DebugMaskBit newDebugMask)
+{
+    debugMask = newDebugMask;
 }
 void MBclient::setTimeOut(const int t){
     if (t>=100 && t<=10000){
@@ -78,12 +113,43 @@ void MBclient::setTimeOut(const int t){
     }
 }
 void MBclient::setTCPaddr(const QUrl url){
+    if (modbusDevice) {
+        delete modbusDevice;
+        modbusDevice = nullptr;
+    }
+
     modbusDevice = new QModbusTcpClient(this);
     connect(modbusDevice, SIGNAL(stateChanged(QModbusDevice::State)),
             this, SLOT(isConnected(QModbusDevice::State)));
     qDebug()<<"IP ="<<url.host()<<"Port ="<<url.port();
     modbusDevice->setConnectionParameter(QModbusDevice::NetworkPortParameter, url.port());
     modbusDevice->setConnectionParameter(QModbusDevice::NetworkAddressParameter, url.host());
+}
+
+void MBclient::setSerialAddr(const QString &portName, int addr, int baudRate, int dataBits, int parity, int stopBits)
+{
+    if (modbusDevice) {
+        delete modbusDevice;
+        modbusDevice = nullptr;
+    }
+    serverAddress = addr;
+
+    modbusDevice = new QModbusRtuSerialClient(this);
+    modbusDevice -> setTimeout(DefaultRtuTimeout);
+    connect(modbusDevice, SIGNAL(stateChanged(QModbusDevice::State)),
+            this, SLOT(isConnected(QModbusDevice::State)));
+
+    qDebug() << "RTU Port =" << portName << "Baud =" << baudRate;
+    modbusDevice->setConnectionParameter(QModbusDevice::SerialPortNameParameter, portName);
+    modbusDevice->setConnectionParameter(QModbusDevice::SerialBaudRateParameter, baudRate);
+    modbusDevice->setConnectionParameter(QModbusDevice::SerialDataBitsParameter, dataBits);
+    modbusDevice->setConnectionParameter(QModbusDevice::SerialParityParameter, parity);
+    modbusDevice->setConnectionParameter(QModbusDevice::SerialStopBitsParameter, stopBits);
+}
+
+void MBclient::setAddr(int addr)
+{
+    serverAddress = addr;
 }
 QModbusDataUnit MBclient::readRequest() const
 {
@@ -127,11 +193,14 @@ QModbusDataUnit MBclient::writeRequest() const
 void MBclient::isReadFinish(){
     //qDebug()<<modbusDevice->state()<<reply->error()<<reply->isFinished();
     if (modbusDevice->state()==QModbusDevice::ConnectedState){
-        if (reply->error()==QModbusDevice::NoError){
+        if (reply->error()==QModbusDevice::NoError)
             qDebug()<<"OK >>>>>>"<<reply->result().values();
-        }else{
+        else
             qDebug()<<"FAIL >>>>>> "<<reply->errorString();
-        }
+        QString logMessage = LBclient::printResponse(reply->rawResult(), packetIndex, debugMask);
+        if (!logMessage.isEmpty())
+            qDebug().noquote() << logMessage;
+        packetIndex++;
         ton->start();
     }
 }

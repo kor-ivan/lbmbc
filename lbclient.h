@@ -25,12 +25,20 @@ public:
         NotMaintainTCP,
         MaintainTCP
     };
+    enum DebugMaskBit {
+        none = 0,
+        DebugResponseText = 1 << 0,  // 1: lbResponse is : ...
+        DebugResponseHex  = 1 << 1,  // 2: HEX lbResponse is : ...
+        DebugResultsDiag  = 1 << 2,  // 4: printResultsDiag
+        DebugFullStats    = 1 << 3   // 8 (Вывод SHA256, byteCount, lenCount)
+    };
     explicit LBclient(QObject *parent);
     explicit LBclient(QObject *parent, const QStringList postArg, lbConnection conn = NotMaintainTCP);
     explicit LBclient(QObject *parent, const std::initializer_list<QStringList> postArg, lbConnection conn = NotMaintainTCP);
     virtual ~LBclient();
     // void setTCPaddr(const QUrl);
     bool setTCPaddr(const QString addr, const int port, const QString iface="");
+    bool setSerialAddr(const QString &portName, const int addr, int baudRate = 9600, int dataBits = 8, int parity = false, int stopBits = 1);
     void setlbHost(const QString host, const QString filename, const QString iface="");
     void Execute();
     // void extracted(const QStringList &qstr);
@@ -69,6 +77,14 @@ public:
     QList<QStringList> getQueryString() const;
     void setMaxOtaTimeOutCount(const int newMaxOtc);
 
+    void setDebugMask(int mask);
+
+    static QString printResponse(const QModbusResponse localMbResponse, int index, DebugMaskBit mask);
+    static QString printRequest(const QModbusRequest localMbRequest, int index, DebugMaskBit mask);
+
+    void setCustomTimeout(int newCustomTimeout);
+    void setCustomAddr(const int newAddr);
+
 signals:
     void ExecuteCompleted (const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);
     void ExecuteCompletedJson (const QString& lbhost, const QJsonObject& Qjo, const QString& message, const QModbusDevice::Error error);
@@ -76,6 +92,7 @@ signals:
     void lbDisconnect (const QString& lbhost, const QString& message, const QModbusDevice::Error error);
     void ExecuteFinished (const QString& message, const QModbusDevice::Error error);
     void lbConnected (const QString& lbhost);
+    void lbDebugMessage (const QString &message);
 
 private slots:
     void isConnected(QModbusDevice::State);
@@ -138,7 +155,7 @@ private:
     static const QModbusDevice::Error lbIpv6LinkLocalError;
     static const QString lbIpv6LinkLocalStr;
 
-    const int lbAddr = 255;
+    int lbAddr = 255;
     const int initByteCount = 1;
     const int lbNumberOfRetries = 0;
     const int lbOtaTimeout = 5000;
@@ -148,6 +165,8 @@ private:
     const int lbDefaultTimeout = 1000;
     const int lbFbootTimeout = 8000;
     const qsizetype xlblogTimeout = 0x14;
+    const int lbDefaultRtuTimeout = 4000;
+    int customTimeout = 0;
 
     int i = 0;
     int byteCount = initByteCount;
@@ -215,6 +234,7 @@ private:
 
     inline void insertQuint32 (QByteArray &qba, qsizetype pos, qsizetype data);
     FirmwarePackage::Result firmware;
+    DebugMaskBit debugMask = none;
 };
 
 #endif // LBCLIENT_H

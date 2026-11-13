@@ -30,6 +30,8 @@ private:
     const QString DefaultYamlConf = "conf.yml";
     const QString DefaultInterface = "0";
     const QString DefaultFileName = "";
+    const QString DefaultBaund = "9600";
+    const int DefaultBeginerRtuAddr = 1;
 
     QCoreApplication* app = nullptr;
 
@@ -47,7 +49,38 @@ private:
     void printlbVarMap(const QMap<QString, lbyaml::lbvar> &lbVarMap);
     QStringList wrapText(QString text, int width);
     QString formatList(const QList<QStringList> &list);
+    bool parseSerialArgs(const QCommandLineParser &parser, QString &portName, int &addr, QStringList &parts, bool missBound = false);
 
+    template <typename T>
+    bool configureSerial(T *client, const QCommandLineParser &parser){
+        QString portName;
+        int addr = 0;
+        QStringList parts;
+
+        if (!parseSerialArgs(parser, portName, addr, parts)) {
+            return false;
+        }
+
+        switch (parts.size()) {
+        case 1: // Указан только addr
+            client->setSerialAddr(portName, addr);
+            break;
+        case 2: // Указаны addr/baudRate
+            client->setSerialAddr(portName, addr, parts.at(1).toInt());
+            break;
+        case 3: // Указаны addr/baudRate/dataBits
+            client->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt());
+            break;
+        case 4: // Указаны addr/baudRate/dataBits/parity
+            client->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt());
+            break;
+        default: // Указаны все 5 параметров или более (лишние игнорируются)
+            client->setSerialAddr(portName, addr, parts.at(1).toInt(), parts.at(2).toInt(), parts.at(3).toInt(), parts.at(4).toInt());
+            break;
+        }
+
+        return true;
+    }
 
 private slots:
     void printOta(const QString& lbhost, const QStringList& result, const QString& message, const QModbusDevice::Error error);

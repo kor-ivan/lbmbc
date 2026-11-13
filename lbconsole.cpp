@@ -4,6 +4,7 @@
 #include "lbprocess.h"
 #include <iostream>
 #include "mbclient.h"
+#include <QSerialPort>
 
 // #include "icmp6scanner.h"
 #ifdef Q_OS_LINUX
@@ -45,8 +46,9 @@ void lbconsole::implement()
     parser.addPositionalArgument(LBclient::KeyNofboot, "Remove fboot from Logic Box PLC");
     parser.addPositionalArgument(LBclient::KeyLog, "Requesting a log from Logic Box PLC, may be use the options a, e, f, i, r, s, v (by default, only a is used). For example: log a10f");
     parser.addPositionalArgument(LBclient::KeyFsformat, "formats the file system PLC");
-    parser.addPositionalArgument("discover", "Sending ICMPv6 discover request");
+    parser.addPositionalArgument("discover", "Sending ICMPv6 discover request or an RTU search (RTU requires options -p, -b");
     parser.addPositionalArgument("ifconfig", "Information about network interfaces available for ICMPv6 requests");
+    parser.addPositionalArgument("comconfig", "Information about available serial (COM) ports, specifically USB-to-Serial converters");
     parser.addPositionalArgument("mactoip", "Converts a mac address to an ipv6 address using EUI-64");
     parser.addPositionalArgument("autoota", "Automatic firmware download in all PLC modules, need --fw option");
     parser.addPositionalArgument("scan", "Reads the configuration of all PLC modules, need --ip or --host or --mac option");
@@ -85,6 +87,14 @@ void lbconsole::implement()
     parser.addOption(lbPreOtaKeys);
     QCommandLineOption lbStrategyOption("strat","Firmware file search strategy 0 - onlyXZ, 1 - onlyBin, 2 - firstXZ, 3 - firstBin","number", "onlyXZ");
     parser.addOption(lbStrategyOption);
+    QCommandLineOption serialPortOption({"p", "port"}, "Serial port name for Modbus RTU (e.g. COM3 or /dev/ttyUSB0)", "port");
+    parser.addOption(serialPortOption);
+    QCommandLineOption baudOption({"b", "baud"}, "Modbus RTU parameters (Format: addr/[baud]/[dataBits]/[parity]/[stopBits]. Only 'addr' is required)", "addr/[9600]/...", "");
+    parser.addOption(baudOption);
+    QCommandLineOption lbDebugMaskOption("debug",
+                                         "Debug bitmask: 1=text response, 2=hex response, 4=json diagnostics, 8=full statistics (Default: 1)",
+                                         "mask");
+    parser.addOption(lbDebugMaskOption);
     QCommandLineOption lbTest("test","Logic Box test option","");
     parser.addOption(lbTest);
     parser.process(*app);
@@ -93,26 +103,76 @@ void lbconsole::implement()
         if (parser.positionalArguments().contains("discover")){
             discover *lbd = new discover(this);
             connect(lbd, &discover::discoverCompleted, this,
-                [this] (const QMap<QString, discover::lbinfo>& DiscoverMap, const discover::discoverError error, const QString errorStr){
-                if (error == discover::NoError){
-                    foreach (const auto i, DiscoverMap)
-                        qDebug()<<i;
-                    emit lbQuit();
+                    [this] (const QMap<QString, discover::lbinfo>& DiscoverMap, const discover::discoverError error, const QString errorStr){
+                        if (error == discover::NoError){
+                            foreach (const auto i, DiscoverMap)
+                            qDebug()<<i;
+                            emit lbQuit();
+                        }else{
+                            qDebug().noquote()<<errorStr;
+                            emit lbQuit();
+                        }
+                    }
+                    );
+            if (parser.isSet(serialPortOption)){
+                if (parser.isSet(serialPortOption)){
+                    connect(lbd, &discover::SendingRtuResponse, this, [this]
+                            (const discover::ModbusRtuSettings& rtu){
+                                qDebug() << "Запрос отправлен на:" << rtu.addr;
+                            });
+                    connect(lbd, &discover::rtuResponseReceived, this, [this]
+                            (const discover::lbinfo& inf){
+                                qDebug() << "Ответ от:" << inf.type <<
+                                    "по адресу:" << inf.rtuSettings.addr <<
+                                    "RTT:" << inf.delay.value(0) << "мс";
+                            });
+                    QString portName;
+                    int addr = DefaultBeginerRtuAddr;
+                    QStringList parts;
+
+                    if (!parseSerialArgs(parser, portName, addr, parts, !parser.isSet("baud"))) {
+                        emit lbQuit();
+                    }
+
+                    discover::ModbusRtuSettings rtu;
+                    rtu.portName = portName;
+
+                    if (parser.isSet(baudOption))
+                    {
+                        switch (parts.size()) {
+                        case 5:
+                            rtu.stopBits = parts.at(4).toInt();
+                        case 4:
+                            rtu.parity = parts.at(3).toInt();
+                        case 3:
+                            rtu.dataBits = parts.at(2).toInt();
+                        case 2:
+                            rtu.baudRate = parts.at(1).toInt();
+                        default:
+                            break;
+                        }
+                    }
+
+                    lbd->executeRtu({rtu},
+                                    addr,
+                                    parser.value(QuantOption).toInt(),
+                                    parser.value(timeoutOption).toFloat()*1000);
                 }else{
-                    qDebug().noquote()<<errorStr;
+                    qDebug() << "To send an RTU search, you need to specify all the options -p";
                     emit lbQuit();
                 }
-            }
-                    );
+            }else{
+
             connect(lbd, &discover::icmpResponseReceived, this,
                     [this] (const QString& ipv6, const int& delay, const int& ifindex){
                         qDebug() << "Ответ от:" << ipv6 << "RTT:" << delay << "мкс" << ifindex;
                     }
                     );
             lbd->execute(parser.value(lbInterfaceOption).toInt());
+            }
         }else if (parser.positionalArguments().contains("ifconfig")){
-            discover *lbd = new discover(app);
-            foreach (QNetworkInterface i, lbd->getlbIfDiscover()) {
+            // discover *lbd = new discover(app);
+            foreach (QNetworkInterface i, discover::getlbIfDiscover()) {
                 qDebug()<<"Interface name :"<<i.humanReadableName();
                 qDebug()<<"Interface index:"<<i.index();
                 foreach (QNetworkAddressEntry j, i.addressEntries()) {
@@ -120,7 +180,27 @@ void lbconsole::implement()
                 }
                 qDebug()<<"===========================================";
             }
-            delete lbd;
+            // delete lbd;
+            emit lbQuit();
+        }else if(parser.positionalArguments().contains("comconfig")){
+            QList<QSerialPortInfo> serialPorts = discover::getlbSerialDiscover();
+            if (serialPorts.isEmpty()) {
+                qDebug().noquote() << "No USB Serial devices found.";
+            } else {
+                foreach (const QSerialPortInfo &info, serialPorts) {
+                    qDebug().noquote() << "Port Name      :" << info.portName();
+                    qDebug().noquote() << "System Location:" << info.systemLocation();
+                    qDebug().noquote() << "Description    :" << info.description();
+                    qDebug().noquote() << "Manufacturer   :" << info.manufacturer();
+                    if (info.hasVendorIdentifier()) {
+                        qDebug().noquote() << "Vendor ID      :" << QString("0x%1").arg(info.vendorIdentifier(), 4, 16, QChar('0')).toUpper();
+                    }
+                    if (info.hasProductIdentifier()) {
+                        qDebug().noquote() << "Product ID     :" << QString("0x%1").arg(info.productIdentifier(), 4, 16, QChar('0')).toUpper();
+                    }
+                         qDebug().noquote() << "===========================================";
+                }
+            }
             emit lbQuit();
         }else if(parser.positionalArguments().contains("mactoip")){
             if (parser.isSet(lbMacOption))
@@ -240,28 +320,78 @@ void lbconsole::implement()
         }
     }else{
         MBclient *mbc = new MBclient(app);
-        QUrl url = QUrl::fromUserInput(parser.value(hostOption));
-        if (url.port()==-1)
-            url.setPort((QUrl::fromUserInput(DefaultHost)).port());
-        mbc->setTCPaddr(url);
-        if (!parser.isSet(WriteOption)){
-            mbc->setTimeOut(parser.value(timeoutOption).toFloat()*1000);
-            mbc->Execute(parser.value(functionOption).toInt(), parser.value(RegOption).toInt(), parser.value(QuantOption).toInt(), parser.value(MBaddrOption).toInt());
-        }else{
-            mbc->WriteExecute(parser.value(functionOption).toInt(), parser.value(WriteOption).toInt(), parser.value(RegOption).toInt(), parser.value(MBaddrOption).toInt());
+
+        // --- Внедрение логирования для MBclient ---
+        if (parser.isSet("debug")) {
+            QString valueStr = parser.value("debug");
+            LBclient::DebugMaskBit mask = LBclient::DebugResponseText;
+
+            if (!valueStr.isEmpty()) {
+                bool ok;
+                int parsedMask = valueStr.toInt(&ok, 0);
+                if (ok)
+                    mask = static_cast<LBclient::DebugMaskBit>(parsedMask);
+            }
+            mbc->setDebugMask(mask);
+        }
+        // ------------------------------------------
+
+        if (parser.isSet(timeoutOption))
+            mbc->setTimeOut(parser.value(timeoutOption).toFloat() * 1000);
+
+        if (parser.isSet("port")) {
+            if (!configureSerial(mbc, parser)) {
+                delete mbc;
+                emit lbQuit();
+                return;
+            }
+        } else {
+            QUrl url = QUrl::fromUserInput(parser.value(hostOption));
+            if (url.port() == -1) {
+                url.setPort((QUrl::fromUserInput(DefaultHost)).port());
+            }
+            mbc->setTCPaddr(url);
+            mbc->setAddr(parser.value(MBaddrOption).toInt());
+        }
+
+        if (!parser.isSet(WriteOption)) {
+            mbc->Execute(parser.value(functionOption).toInt(),
+                         parser.value(RegOption).toInt(),
+                         parser.value(QuantOption).toInt());
+        } else {
+            mbc->WriteExecute(parser.value(functionOption).toInt(),
+                              parser.value(WriteOption).toInt(),
+                              parser.value(RegOption).toInt());
         }
     }
 }
 
-// void lbconsole::stop()
-// {
-//     emit lbQuit();
-//     // app->quit();
-//     // app->deleteLater();
-// }
-
-void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const QCommandLineOption &lbhostOption, const QCommandLineOption &lbYamlConfOption, const QCommandLineOption &lbMacOption, const QCommandLineOption &hostOption, const QCommandLineOption &lbInterfaceOption)
+void lbconsole::setlbAddr(const QCommandLineParser &parser,
+                          LBclient *lbc,
+                          const QCommandLineOption &lbhostOption,
+                          const QCommandLineOption &lbYamlConfOption,
+                          const QCommandLineOption &lbMacOption,
+                          const QCommandLineOption &hostOption,
+                          const QCommandLineOption &lbInterfaceOption)
 {
+
+    if (parser.isSet("debug")) {
+        QString valueStr = parser.value("debug");
+
+        LBclient::DebugMaskBit mask = LBclient::DebugResponseText;
+
+        if (!valueStr.isEmpty()) {
+            bool ok;
+            int parsedMask = parser.value("debug").toInt(&ok, 0);
+            if (ok)
+                mask = static_cast<LBclient::DebugMaskBit>(parsedMask);
+        }
+        lbc->setDebugMask(mask);
+        connect(lbc, &LBclient::lbDebugMessage, this, [](const QString &message){
+            qDebug().noquote() << message;
+        });
+    }
+
     QString host;
     if (parser.isSet(lbMacOption))
         host = lbyaml::MacToIPv6(parser.value(lbMacOption));
@@ -273,18 +403,19 @@ void lbconsole::setlbAddr(const QCommandLineParser &parser, LBclient *lbc, const
             lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption),(parser.value(lbInterfaceOption)));
         else
             lbc->setlbHost(parser.value(lbhostOption), parser.value(lbYamlConfOption));
-        }
-    else if (parser.isSet(lbInterfaceOption)){
+    }
+    else if (parser.isSet(lbInterfaceOption) && !parser.isSet("port")){
         lbc->setTCPaddr(host, 502, parser.value(lbInterfaceOption));
     }
-    else{
-        // QUrl url = QUrl::fromUserInput((parser.isSet(lbMacOption))?
-        //                                    lbyaml::MacToIPv6(parser.value(lbMacOption)):
-        //                                    parser.value(hostOption));
-        // url.setPort((QUrl::fromUserInput(DefaultHost)).port());
+    else if (!parser.isSet("port")){
         lbc->setTCPaddr(host, QUrl::fromUserInput(DefaultHost).port());
     }
+
+    if (configureSerial(lbc, parser)) {
+        return;
+    }
 }
+
 
 void lbconsole::printStatstr(const lbyaml::lbvarstat &statstr, lbyaml &yaml)
 {
@@ -377,6 +508,64 @@ QString lbconsole::formatList(const QList<QStringList> &list)
         groups << "(" + subList.join(",") + ")";
     }
     return groups.join(" ");
+}
+
+bool lbconsole::parseSerialArgs(const QCommandLineParser &parser, QString &portName, int &addr, QStringList &parts, bool missBound)
+{
+    if (!parser.isSet("port")) return false;
+    portName = parser.value("port");
+
+    if (!missBound)
+    {
+        if (!parser.isSet("baud")) {
+            qDebug().noquote() << "Error: When using --port, the --baud option with at least 'addr' is required.";
+            return false;
+        }
+
+        QString baudRaw = parser.value("baud");
+        parts = baudRaw.split('/');
+
+        if (parts.isEmpty() || baudRaw.isEmpty()) {
+            qDebug().noquote() << "Error: --baud option cannot be empty. Format: addr/[baud]/[dataBits]/[parity]/[stopBits]";
+            return false;
+        }
+
+        bool ok;
+        addr = parts.at(0).toInt(&ok);
+        if (!ok) {
+            qDebug().noquote() << "Error: Device address (addr) must be a valid integer.";
+            return false;
+        }
+
+        if (parts.size() >= 4) {
+            const QString parityStr = parts.at(3).trimmed().toLower();
+            int parityVal = -1;
+
+            if (parityStr == "n") {
+                parityVal = QSerialPort::NoParity;   // 0
+            } else if (parityStr == "e") {
+                parityVal = QSerialPort::EvenParity; // 2
+            } else if (parityStr == "o") {
+                parityVal = QSerialPort::OddParity;  // 3
+            } else {
+                // Опционально: проверка числового ввода (0, 2, 3)
+                int val = parityStr.toInt(&ok);
+                if (ok && (val == QSerialPort::NoParity || val == QSerialPort::EvenParity || val == QSerialPort::OddParity)) {
+                    parityVal = val;
+                }
+            }
+
+            if (parityVal == -1) {
+                qDebug().noquote() << "Error: Invalid parity value. Use 'n' (None), 'e' (Even), or 'o' (Odd).";
+                return false;
+            }
+
+            // Перезаписываем элемент в списке числовым значением
+            parts[3] = QString::number(parityVal);
+        }
+    }
+
+    return true;
 }
 
 

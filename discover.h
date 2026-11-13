@@ -3,7 +3,8 @@
 
 #include <QObject>
 #include <QNetworkInterface>
-// #include <QCoreApplication>
+#include <QSerialPortInfo>
+#include <QElapsedTimer>
 #include "icmp6scanner.h"
 #include "lbclient.h"
 #include "lbmbc_global.h"
@@ -16,6 +17,15 @@ public:
     // explicit discover(QCoreApplication *a, QObject *parent = nullptr);
     virtual ~discover();
     void execute(int ifindex = 0);
+    struct ModbusRtuSettings {
+        QString portName = {};
+        int addr = -1;
+        int baudRate = 9600;
+        int dataBits = 8;
+        int parity = 0;
+        int stopBits = 1;
+    };
+    void executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int startAddr, const int endAddr, const int timeOut);
     static QList<QNetworkInterface> getlbIfDiscover();
     struct lbinfo {
         QString name = "noname";
@@ -23,8 +33,9 @@ public:
         QString ipv4 = "unknown";
         QString mac = "unknown";
         QList<float> delay;
-        QList<int> ifindex;
+        QList<QString> ifindex;
         bool btn = false;
+        ModbusRtuSettings rtuSettings;
         QString LBMBC_EXPORT toString() const;
     };
 
@@ -37,12 +48,15 @@ public:
         SomeError
     };
     static QString addColonsToMac (const QString &mac);
+    static QList<QSerialPortInfo> getlbSerialDiscover();
 
 signals:
     void discoverCompleted (const QMap<QString, discover::lbinfo>& DiscoverMap, const discover::discoverError error, const QString errorStr);
     void icmpResponseReceived (const QString& ipv6, const int& delay, const int& ifindex);
+    void rtuResponseReceived (const lbinfo& inf);
+    void SendingRtuResponse (const ModbusRtuSettings& rtu);
 private:
-    QMap<QString, lbinfo> getlbDiscoverMap();
+    // QMap<QString, lbinfo> getlbDiscoverMap();
     const QString lbMulticastAddr = "ff02::4c6f:6769:6342:6f78";
     const QString NoErrorStr = "No error";
     int waitingTime = 1000;
@@ -57,6 +71,9 @@ private:
     void getResults();
     float delaytofloat(int d);
 
+    QList<ModbusRtuSettings>::ConstIterator RtuSettingsIterator;
+    int currentAddr = 0;
+    QElapsedTimer rtuTimer;
 
 private slots:
     void isIfscanIsFinish(const QString& name);

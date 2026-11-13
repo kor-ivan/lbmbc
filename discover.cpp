@@ -1,5 +1,5 @@
 #include "discover.h"
-
+#include <QSerialPort>
 
 discover::discover(QObject *parent)
     : QObject{parent}
@@ -9,11 +9,13 @@ discover::discover(QObject *parent)
 
 discover::~discover()
 {
-    // foreach (auto i, scanner)
-    //     delete i;
-    // foreach (auto i, lbcMap) {
-    //     delete i;
+    // foreach (auto client, lbcMap) {
+    //     if (client) {
+    //         client->lbDisconnectDevice();
+    //     }
     // }
+
+    // QCoreApplication::processEvents();
 }
 
 
@@ -25,7 +27,7 @@ void discover::execute(int ifindex) {
     }else if (QNetworkInterface::interfaceFromIndex(ifindex).isValid()){
         qnif.append(QNetworkInterface::interfaceFromIndex(ifindex));
     }else{
-        emit discoverCompleted(lbDiscoverMap, SomeError, "Interface is not Valid");
+        emit discoverCompleted(lbDiscoverMap, SomeError, "Interface is not valid");
         this->deleteLater();
         return;
     }
@@ -40,10 +42,109 @@ void discover::execute(int ifindex) {
     }
 }
 
-QMap<QString, discover::lbinfo> discover::getlbDiscoverMap()
+void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int startAddr, const int endAddr, const int timeOut)
 {
-    return lbDiscoverMap;
+    if (startAddr >= endAddr || endAddr > 254 || timeOut < 100 || timeOut > 10000){
+        emit discoverCompleted(lbDiscoverMap, SomeError, "Rtu address or timeout parametrs is not valid");
+        this->deleteLater();
+        return;
+    }
+
+    auto ports = getlbSerialDiscover();
+    bool exist = false;
+
+    for (const auto &config : rtuConfig) {
+        if (std::any_of(ports.begin(), ports.end(), [&config](const QSerialPortInfo &portInfo){
+                return portInfo.portName() == config.portName;
+            })){
+            exist = true;
+        }else{
+            exist = false;
+        }
+    }
+
+    if (!exist){
+        emit discoverCompleted(lbDiscoverMap, SomeError, "Rtu port is not valid");
+        this->deleteLater();
+        return;
+    }
+
+    RtuSettingsIterator = rtuConfig.constBegin();
+    currentAddr = startAddr;
+
+    auto lbMapIterator = lbcMap.insert(QString(),
+            new LBclient(this, {{"get", "sys.ipaddr", "sys.devtype", "sys.macaddr", "sys.btnage"}}, LBclient::MaintainTCP));
+
+    lbMapIterator.value()->setSerialAddr(RtuSettingsIterator->portName,
+                                         currentAddr,
+                                         RtuSettingsIterator->baudRate,
+                                         RtuSettingsIterator->dataBits,
+                                         RtuSettingsIterator->parity,
+                                         RtuSettingsIterator->stopBits);
+    lbMapIterator.value()->setCustomTimeout(timeOut);
+
+    auto insertRtuAddr = [this](const ModbusRtuSettings& settings){
+        ModbusRtuSettings rtu = settings;
+        rtu.addr = currentAddr;
+        return rtu;
+    };
+
+    connect(lbMapIterator.value(), &LBclient::ExecuteCompletedJson, this,
+            [this, endAddr, startAddr, lbMapIterator, rtuConfig, insertRtuAddr]
+            (const QString &lbhost, const QJsonObject &Qjo, const QString &message, const QModbusDevice::Error error){
+        float responseDelayMs = static_cast<float>(rtuTimer.nsecsElapsed()) / 1000000.0f;
+        if (error == QModbusDevice::NoError){
+            lbinfo inf;
+            inf.ipv4 = Qjo.value("sys.ipaddr").toString();
+            inf.type = Qjo.value("sys.devtype").toString();
+            inf.mac = addColonsToMac(Qjo.value("sys.macaddr").toString());
+            auto btn = Qjo.value("sys.btnage").toString().toDouble();
+            if (btn!=-1 && btn<60)
+                inf.btn = true;
+            QString ipv6 = lbyaml::MacToIPv6(inf.mac);
+            inf.rtuSettings = insertRtuAddr(*RtuSettingsIterator);
+            inf.delay.append(responseDelayMs);
+            inf.ifindex.append(inf.rtuSettings.portName);
+            lbDiscoverMap.insert(ipv6, inf);
+            emit rtuResponseReceived(inf);
+        }
+        if (currentAddr <= endAddr){
+            currentAddr++;
+            lbMapIterator.value()->setCustomAddr(currentAddr);
+            emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
+            rtuTimer.start();
+            lbMapIterator.value()->Execute();
+
+        }else{
+            RtuSettingsIterator++;
+            currentAddr = startAddr;
+            if (RtuSettingsIterator != rtuConfig.constEnd()){
+                lbMapIterator.value()->setSerialAddr(RtuSettingsIterator->portName,
+                                                     currentAddr,
+                                                     RtuSettingsIterator->baudRate,
+                                                     RtuSettingsIterator->dataBits,
+                                                     RtuSettingsIterator->parity,
+                                                     RtuSettingsIterator->stopBits);
+                emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
+                rtuTimer.start();
+                lbMapIterator.value()->Execute();
+            }else{
+                lbMapIterator.value()->lbDisconnectDevice();
+            }
+        }
+    });
+    connect(lbMapIterator.value(), &LBclient::lbDisconnect, this, [this]
+            (const QString &lbhost, const QString &message, const QModbusDevice::Error error){
+        getResults();
+    });
+    emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
+    lbMapIterator.value()->Execute();
 }
+
+// QMap<QString, discover::lbinfo> discover::getlbDiscoverMap()
+// {
+//     return lbDiscoverMap;
+// }
 
 int discover::getWaitingTime() const
 {
@@ -74,10 +175,6 @@ QList<QNetworkInterface> discover::getlbIfDiscover()
 void discover::getResults()
 {
     if (ScannCount == 0 && lbcCount == 0){
-        // qDebug()<<lbDiscoverMap;
-        // foreach (const auto i, lbDiscoverMap) {
-        //     qDebug()<<i;
-        // }
         emit discoverCompleted(lbDiscoverMap, NoError, NoErrorStr);
         this->deleteLater();
     }
@@ -103,13 +200,22 @@ QString discover::addColonsToMac(const QString &mac)
     return result;
 }
 
+QList<QSerialPortInfo> discover::getlbSerialDiscover()
+{
+    QList<QSerialPortInfo> availablePorts = QSerialPortInfo::availablePorts();
+    availablePorts.removeIf([](const QSerialPortInfo &port) {
+        // Исключаем порты, у которых нет Vendor ID (обычно это виртуальные или стандартные COM1/COM2)
+        return !port.hasVendorIdentifier();
+    });
+
+    return availablePorts;
+}
+
 void discover::isIfscanIsFinish(const QString &name)
 {
     // qDebug() << ScannCount << "Сканирование завершено на интерфейсе" << name;
     sender()->deleteLater();
     ScannCount--;
-    // if (ScannCount == 0)
-    //     qDebug()<<"Timeout icmpv6Scanner";
     getResults();
 }
 
@@ -119,7 +225,7 @@ void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
     if (!lbDiscoverMap.contains(from)){
         lbinfo inf;
         inf.delay.append(delaytofloat(rttmcs));
-        inf.ifindex.append(ifindex);
+        inf.ifindex.append(QString::number(ifindex));
         lbDiscoverMap.insert(from, inf);
         auto lbMapIterator = lbcMap.insert(from,
             new LBclient(this, {{"get", "sys.ipaddr", "sys.devtype", "sys.macaddr"},{"getconf"}},LBclient::MaintainTCP));
@@ -133,7 +239,7 @@ void discover::isResponseReceived(const QString &from, int rttmcs, int ifindex)
         lbFinishMap.insert(from, false);
     }else{
         lbDiscoverMap[from].delay.append(delaytofloat(rttmcs));
-        lbDiscoverMap[from].ifindex.append(ifindex);
+        lbDiscoverMap[from].ifindex.append(QString::number(ifindex));
     }
 }
 
@@ -148,7 +254,8 @@ void discover::isExecuteCompleted(const QString &lbhost, const QStringList &resu
         }
     }
     // qDebug() << lbcCount << "Запросы Modbus (107) завершены по адресу" << lbhost;
-    sender()->deleteLater();
+    lbcMap.value(lbhost)->disconnect();
+    lbcMap.value(lbhost)->lbDisconnectDevice();
     lbcCount--;
     lbFinishMap.insert(lbhost, true);
     getResults();
@@ -161,8 +268,41 @@ void discover::isExecuteCompletedJson(const QString &lbhost, const QJsonObject &
         inf.ipv4 = Qjo.value("get").toObject().value("sys.ipaddr").toString();
         inf.type = Qjo.value("get").toObject().value("sys.devtype").toString();
         inf.mac = addColonsToMac(Qjo.value("get").toObject().value("sys.macaddr").toString());
-        if (Qjo.value("getconf").toObject().find("hostname")->type()==QJsonValue::String)
-            inf.name = Qjo.value("getconf").toObject().find("hostname")->toString();
+
+        QJsonObject jObj = Qjo.value("getconf").toObject();
+        auto jit = jObj.find("hostname");
+        if (jit != jObj.end() && jit->isString()) {
+            inf.name = jit->toString();
+        }
+
+        jObj = Qjo.value("getconf").toObject()
+                   .value("slot-1").toObject()
+                   .value("modbus_server").toObject();
+        jit = jObj.find("rtu_addr");
+        if (jit != jObj.end() && jit->isString()) { // Сначала проверяем end(), потом type()/isString()
+            bool ok = false;
+            int addr = jit->toString().toInt(&ok, 0);
+            if (ok)
+                inf.rtuSettings.addr = addr;
+        }
+
+        jObj = Qjo.value("getconf").toObject().value("slot-1").toObject();
+        jit = jObj.find("rs485");
+        if (jit != jObj.end() && jit->isObject()){
+            const QJsonObject rtuObj = jit->toObject();
+            inf.rtuSettings.baudRate = rtuObj.value("speed").toString().toInt();
+            inf.rtuSettings.dataBits = rtuObj.value("bits").toString().toInt();
+            inf.rtuSettings.stopBits = rtuObj.value("stop_bits").toString().toInt();
+            const QString parityStr = rtuObj.value("parity").toString().trimmed().toLower();
+            if (parityStr == "e") {
+                inf.rtuSettings.parity = QSerialPort::EvenParity; // 2
+            } else if (parityStr == "o") {
+                inf.rtuSettings.parity = QSerialPort::OddParity;  // 3
+            } else {
+                // По умолчанию или при "n" ставим NoParity
+                inf.rtuSettings.parity = QSerialPort::NoParity;   // 0
+            }
+        }
         lbDiscoverMap.insert(lbhost, inf);
         // qDebug() << lbcCount << "Запросы Modbus (107) завершены по адресу" << lbhost;
     }
@@ -179,7 +319,7 @@ void discover::islbHostDisconnect(const QString &lbhost, const QString &message,
     if (!lbFinishMap.value(lbhost)){
         lbcCount--;
         getResults();
-        qDebug()<<"lbHostDisconnect is"<<lbhost;
+        // qDebug()<<"lbHostDisconnect is"<<lbhost;
     }
 }
 
@@ -193,6 +333,14 @@ QDebug operator<<(QDebug out, const discover::lbinfo& inf){
     foreach (const auto i, inf.delay) {
         out<<"delay ="<<i<<"ms";
     }
+    if (inf.rtuSettings.addr > 0)
+        out << QString("RTU: %1/%2/%3/%4/%5")
+                   .arg(inf.rtuSettings.addr)
+                   .arg(inf.rtuSettings.baudRate)
+                   .arg(inf.rtuSettings.dataBits)
+                   .arg(inf.rtuSettings.parity == QSerialPort::EvenParity ? "E" :
+                            inf.rtuSettings.parity == QSerialPort::OddParity  ? "O" : "N")
+                   .arg(inf.rtuSettings.stopBits);
     return out;
 }
 
@@ -200,9 +348,9 @@ QString discover::lbinfo::toString() const
 {
     QString str;
     if (btn) str.append("*");
-    str += QString("%1 %2 %3 %4 ").arg(name).arg(type).arg(mac).arg(ipv4);
+    str += QString("%1 %2 %3 %4 ").arg(name, type, mac, ipv4);
     QStringList ifindexStr;
-    for (int i : ifindex) ifindexStr << "IF =" << QString::number(i);
+    for (const auto& i : ifindex) ifindexStr << "IF =" << i;
     str += ifindexStr.join(" ") + " ";
     QStringList delayStr;
     for (float d : delay) delayStr<<"delay ="<<QString::number(d)<<"ms";

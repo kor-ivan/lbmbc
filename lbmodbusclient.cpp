@@ -11,23 +11,18 @@ const QModbusDevice::Error lbModbusClient::lbError = (QModbusDevice::Error)0x11;
 const QString lbModbusClient::lbNotValidResponseStr = "Logic Box Response is not valid";
 const QString lbModbusClient::lbErrorStr = "Logic Box Error is ";
 
-lbModbusClient::lbModbusClient(QObject *parent)
-    : QModbusTcpClient{parent}
-{
-    QModbusResponse::registerDataSizeCalculator(LogicBox, [] (const QModbusResponse &pdu){
-        return 252;
-    });
-}
+lbModbusClient::lbModbusClient()
+{}
 
-void lbModbusClient::setDeviceError(QString errStr, Error err)
-{
-    setError(errStr, err);
-}
+// void lbModbusClient::setDeviceError(QString errStr, Error err)
+// {
+//     setError(errStr, err);
+// }
 
-bool lbModbusClient::processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data)
+bool lbModbusClient::processLogic(const QModbusResponse &response, QModbusDataUnit *data)
 {
     if (response.functionCode() != LogicBox && response.isValid()){
-        setError(lbNotValidResponseStr, lbNotValidResponse);
+        setDeviceError(lbNotValidResponseStr, lbNotValidResponse);
         return false;
     }
     quint8 tag=0, len=0, err=0;
@@ -48,7 +43,7 @@ bool lbModbusClient::processPrivateResponse(const QModbusResponse &response, QMo
         return true;
         }
     else{
-        setError(lbErrorStr + getlbError(response, len), lbError);
+        setDeviceError(lbNotValidResponseStr, lbNotValidResponse);
         return false;
     }
     return true;
@@ -59,50 +54,6 @@ void lbModbusClient::getlbTLE(const QModbusResponse &response, quint8 &t, quint8
     response.decodeData(&t, &l, &e);
 }
 
-// QByteArray lbModbusClient::getlbSHA(const QModbusResponse &response)
-// {
-//     QByteArray respSHA(response.data().remove(0, 3));
-//     respSHA.resize(lbLenSHA);
-//     return respSHA;
-// // }
-
-// QByteArray lbModbusClient::getlbJsonStr(const QModbusResponse &response, const quint8 &len)
-// {
-//     QByteArray respJson(response.data().remove(0, 3 + lbLenSHA));
-//     respJson.resize(len - lbLenSHA - 1);
-//     return respJson;
-// }
-
-// QJsonParseError lbModbusClient::lbParseJson(const QByteArray &lbJsonStr, QStringList &keys, QJsonObject &paramJsonObj)
-// {
-//     QJsonParseError errJson;
-//     QJsonDocument docRead;
-//     docRead = docRead.fromJson(lbJsonStr, &errJson);
-//     if (errJson.error == QJsonParseError::NoError){
-//         QJsonObject jObj = docRead.object();
-//         keys = jObj.keys();
-//         if (!keys.empty()){
-//             if (keys[0] == "get"){
-//                 paramJsonObj = jObj["get"].toObject();
-//             }
-//         }
-//         return errJson;
-//     }else{
-//         return errJson;
-//     }
-// }
-
-// QList<quint16> lbModbusClient::getlbValue(const QJsonObject lbJsonObj)
-// {
-//     QList<quint16> val;
-//     if (!lbJsonObj.empty()){
-//         QStringList key = lbJsonObj.keys();
-//         for (int i=0;i<lbJsonObj.size(); i++){
-//             val.append(lbJsonObj[key[i]].toDouble());
-//         }
-//     }
-//     return val;
-// }
 
 void lbModbusClient::initOtaWarning()
 {
@@ -123,4 +74,30 @@ QString lbModbusClient::getlbError(const QModbusResponse &response, const quint8
     QString str(respErr);
     return str;
 }
+
+
+lbModbusTcpClient::lbModbusTcpClient(QObject *parent)
+    : QModbusTcpClient(parent)
+{
+    QModbusResponse::registerDataSizeCalculator(LogicBox, [](const QModbusResponse &){ return 252; });
+}
+
+bool lbModbusTcpClient::processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data)
+{
+    return this->processLogic(response, data);
+}
+
+
+lbModbusRtuClient::lbModbusRtuClient(QObject *parent)
+    : QModbusRtuSerialClient(parent)
+{
+    QModbusResponse::registerDataSizeCalculator(LogicBox, [](const QModbusResponse &){ return 252; });
+}
+
+bool lbModbusRtuClient::processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data)
+{
+    return this->processLogic(response, data);
+}
+
+
 
