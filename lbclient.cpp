@@ -59,8 +59,13 @@ LBclient::LBclient(QObject *parent, const std::initializer_list<QStringList> pos
 
 LBclient::~LBclient()
 {
-    // qDebug()<<"into ~LBclient()... delete lbDevice, ton";
-    delete lbDevice;
+    if (lbDevice) {
+        if (auto qtDevice = dynamic_cast<QObject*>(lbDevice)) {
+            lbDevice->disconnectDevice();
+            qtDevice->deleteLater();
+        }
+        lbDevice = nullptr;
+    }
     delete ton;
     delete pyaml;
     delete otafile;
