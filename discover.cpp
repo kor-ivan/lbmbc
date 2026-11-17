@@ -138,6 +138,7 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
         getResults();
     });
     emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
+    rtuTimer.start();
     lbMapIterator.value()->Execute();
 }
 
