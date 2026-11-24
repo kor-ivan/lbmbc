@@ -38,6 +38,8 @@ public:
     virtual QModbusReply *sendRawRequest(const QModbusRequest &request, int serverAddress) = 0;
     virtual void setConnectionParameter(QModbusDevice::ConnectionParameter parameter, const QVariant &value) = 0;
     virtual void setNumberOfRetries(int number) = 0;
+    virtual void disconnectSignals(const QObject *receiver = nullptr) = 0;
+    virtual void deleteLater() = 0;
 
 protected:
     bool processLogic(const QModbusResponse &response, QModbusDataUnit *data);
@@ -70,6 +72,8 @@ public:
     QModbusReply *sendRawRequest(const QModbusRequest &request, int serverAddress) override { return QModbusTcpClient::sendRawRequest(request, serverAddress); }
     void setConnectionParameter(QModbusDevice::ConnectionParameter parameter, const QVariant &value) override { QModbusTcpClient::setConnectionParameter(parameter, value); }
     void setNumberOfRetries(int number) override { QModbusTcpClient::setNumberOfRetries(number); }
+    void disconnectSignals(const QObject *receiver = nullptr) override { QObject::disconnect(receiver); }
+    void deleteLater() override { QObject::deleteLater(); }
 
 protected:
     bool processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data) override;
@@ -92,6 +96,8 @@ public:
     QModbusReply *sendRawRequest(const QModbusRequest &request, int serverAddress) override { return QModbusRtuSerialClient::sendRawRequest(request, serverAddress); }
     void setConnectionParameter(QModbusDevice::ConnectionParameter parameter, const QVariant &value) override { QModbusRtuSerialClient::setConnectionParameter(parameter, value); }
     void setNumberOfRetries(int number) override { QModbusRtuSerialClient::setNumberOfRetries(number); }
+    void disconnectSignals(const QObject *receiver = nullptr) override { QObject::disconnect(receiver); }
+    void deleteLater() override { QObject::deleteLater(); }
 
 protected:
     bool processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data) override;

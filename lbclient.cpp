@@ -73,10 +73,8 @@ LBclient::~LBclient()
 
 bool LBclient::setTCPaddr(const QString addr, const int port, const QString iface)
 {
-    if (lbDevice){
-        delete lbDevice;
-        lbDevice = nullptr;
-    }
+    resetDevice();
+
     lbDevice = new lbModbusTcpClient(this);
     lbDevice->setNumberOfRetries(lbNumberOfRetries);
 
@@ -99,10 +97,8 @@ bool LBclient::setTCPaddr(const QString addr, const int port, const QString ifac
 
 bool LBclient::setSerialAddr(const QString &portName, const int addr, int baudRate, int dataBits, int parity, int stopBits)
 {
-    if (lbDevice){
-        delete lbDevice;
-        lbDevice = nullptr;
-    }
+    resetDevice();
+
     lbhost = portName;
     lbAddr = addr;
     lbDevice = new lbModbusRtuClient(this);
@@ -539,6 +535,23 @@ void LBclient::insertQuint32(QByteArray &qba, qsizetype pos, qsizetype data)
     QDataStream pktStream(&(pkt),QIODeviceBase::ReadWrite);
     pktStream<<static_cast<quint32>(data);
     qba.replace(pos,4,pkt);
+}
+
+void LBclient::resetDevice()
+{
+    if (!lbDevice)
+        return;
+
+    if (lbReply) {
+        lbReply->disconnect(this);
+        lbReply->deleteLater();
+        lbReply = nullptr;
+    }
+
+    lbDevice->disconnectSignals(this);
+    lbDevice->disconnectDevice();
+    lbDevice->deleteLater();
+    lbDevice = nullptr;
 }
 
 

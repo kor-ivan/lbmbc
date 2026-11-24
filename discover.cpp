@@ -69,7 +69,8 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
         return;
     }
 
-    RtuSettingsIterator = rtuConfig.constBegin();
+    m_rtuConfig = rtuConfig;
+    RtuSettingsIterator = m_rtuConfig.constBegin();
     currentAddr = startAddr;
 
     auto lbMapIterator = lbcMap.insert(QString(),
@@ -90,7 +91,7 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
     };
 
     connect(lbMapIterator.value(), &LBclient::ExecuteCompletedJson, this,
-            [this, endAddr, startAddr, lbMapIterator, rtuConfig, insertRtuAddr]
+            [this, endAddr, startAddr, lbMapIterator, insertRtuAddr]
             (const QString &lbhost, const QJsonObject &Qjo, const QString &message, const QModbusDevice::Error error){
         float responseDelayMs = static_cast<float>(rtuTimer.nsecsElapsed()) / 1000000.0f;
         if (error == QModbusDevice::NoError){
@@ -108,7 +109,7 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
             lbDiscoverMap.insert(ipv6, inf);
             emit rtuResponseReceived(inf);
         }
-        if (currentAddr <= endAddr){
+        if (currentAddr < endAddr){
             currentAddr++;
             lbMapIterator.value()->setCustomAddr(currentAddr);
             emit SendingRtuResponse(insertRtuAddr(*RtuSettingsIterator));
@@ -116,9 +117,9 @@ void discover::executeRtu(const QList<ModbusRtuSettings> &rtuConfig, const int s
             lbMapIterator.value()->Execute();
 
         }else{
-            RtuSettingsIterator++;
+            ++RtuSettingsIterator;
             currentAddr = startAddr;
-            if (RtuSettingsIterator != rtuConfig.constEnd()){
+            if (RtuSettingsIterator != m_rtuConfig.constEnd()){
                 lbMapIterator.value()->setSerialAddr(RtuSettingsIterator->portName,
                                                      currentAddr,
                                                      RtuSettingsIterator->baudRate,

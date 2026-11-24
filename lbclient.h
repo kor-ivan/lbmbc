@@ -235,6 +235,7 @@ private:
     inline void insertQuint32 (QByteArray &qba, qsizetype pos, qsizetype data);
     FirmwarePackage::Result firmware;
     DebugMaskBit debugMask = none;
+    void resetDevice();
 };
 
 #endif // LBCLIENT_H

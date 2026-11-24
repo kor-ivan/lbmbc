@@ -71,6 +71,7 @@ private:
     void getResults();
     float delaytofloat(int d);
 
+    QList<ModbusRtuSettings> m_rtuConfig;
     QList<ModbusRtuSettings>::ConstIterator RtuSettingsIterator;
     int currentAddr = 0;
     QElapsedTimer rtuTimer;
