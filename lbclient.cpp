@@ -40,6 +40,7 @@ const QString LBclient::lbFbootUnitStr = "package";
 const QString LBclient::lbCompletedStr = "Successfully";
 const QString LBclient::lbFsformatCompletedStr = "Timed out but maybe because fsformat is slow";
 const QString LBclient::lbIpv6LinkLocalStr = "The Link-Local IPv6 connection address must be specified together with the interface according to RFC 4291";
+const QString LBclient::lbDeviceNotConfigureStr = "Device is not configured";
 
 
 LBclient::LBclient(QObject *parent) : QObject{parent}
@@ -127,6 +128,10 @@ void LBclient::setlbHost(const QString host, const QString filename, const QStri
 
 void LBclient::Execute()
 {
+    if (!lbDevice) {
+        emit lbDisconnect(lbhost, lbDeviceNotConfigureStr, QModbusDevice::ConfigurationError);
+        return;
+    }
     if (!lbVectorRequest.isEmpty()){
         lbResponseBuffer.clear();
         lbVectorRequest.clear();
