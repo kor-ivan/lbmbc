@@ -116,6 +116,69 @@ void lbyaml::setConfig(const QString filename, YamlMode mode)
     }
 }
 
+bool lbyaml::getRtuSettings(int &addr, int &baudRate, int &dataBits, int &parity, int &stopBits, const QString &slot)
+{
+    if (host.isEmpty() || slot.isEmpty() || !config || !config[host] || !config[host].IsMap()) {
+        return false;
+    }
+
+    const YAML::Node slotNode = config[host][slot.toStdString()];
+    if (!slotNode || !slotNode.IsMap()) {
+        return false;
+    }
+
+    const YAML::Node modbusNode = slotNode["modbus_server"];
+    if (!modbusNode || !modbusNode.IsMap() ||
+        !modbusNode["rtu_addr"] || !modbusNode["rtu_addr"].IsScalar()) {
+        return false;
+    }
+
+    const YAML::Node rs485Node = slotNode["rs485"];
+    if (!rs485Node || !rs485Node.IsMap()) {
+        return false;
+    }
+
+    if (!rs485Node["speed"] || !rs485Node["speed"].IsScalar() ||
+        !rs485Node["bits"] || !rs485Node["bits"].IsScalar() ||
+        !rs485Node["parity"] || !rs485Node["parity"].IsScalar() ||
+        !rs485Node["stop_bits"] || !rs485Node["stop_bits"].IsScalar()) {
+        return false;
+    }
+
+    bool okAddr = false;
+    int parsedAddr = QString::fromStdString(modbusNode["rtu_addr"].Scalar()).toInt(&okAddr);
+
+    bool okSpeed = false;
+    int parsedBaud = QString::fromStdString(rs485Node["speed"].Scalar()).toInt(&okSpeed);
+
+    bool okBits = false;
+    int parsedBits = QString::fromStdString(rs485Node["bits"].Scalar()).toInt(&okBits);
+
+    bool okStop = false;
+    int parsedStop = QString::fromStdString(rs485Node["stop_bits"].Scalar()).toInt(&okStop);
+
+    int parsedParity = -1;
+    const QString p = QString::fromStdString(rs485Node["parity"].Scalar()).trimmed();
+    if (p.compare("n", Qt::CaseInsensitive) == 0 || p.compare("none", Qt::CaseInsensitive) == 0) {
+        parsedParity = 0; // QSerialPort::NoParity
+    } else if (p.compare("e", Qt::CaseInsensitive) == 0 || p.compare("even", Qt::CaseInsensitive) == 0) {
+        parsedParity = 2; // QSerialPort::EvenParity
+    } else if (p.compare("o", Qt::CaseInsensitive) == 0 || p.compare("odd", Qt::CaseInsensitive) == 0) {
+        parsedParity = 3; // QSerialPort::OddParity
+    }
+
+    if (!okAddr || !okSpeed || !okBits || !okStop || parsedParity == -1) {
+        return false;
+    }
+
+    addr = parsedAddr;
+    baudRate = parsedBaud;
+    dataBits = parsedBits;
+    parity = parsedParity;
+    stopBits = parsedStop;
+    return true;
+}
+
 QString lbyaml::getlbhost() const
 {
     return host;

@@ -64,6 +64,8 @@ public:
     QString getFormattedYaml(outputFormat f = raw);
 
     void setConfig(const QString filename, YamlMode mode = file);
+    bool getRtuSettings(int &addr, int &baudRate, int &dataBits, int &parity, int &stopBits,
+                        const QString &slot = QStringLiteral("slot-1"));
 
 private:
     static YAML::Node JsonToYaml(QJsonObject qjo, int level=0,

@@ -40,6 +40,7 @@ public:
     virtual void setNumberOfRetries(int number) = 0;
     virtual void disconnectSignals(const QObject *receiver = nullptr) = 0;
     virtual void deleteLater() = 0;
+    virtual QVariant connectionParameter(QModbusDevice::ConnectionParameter parameter) const = 0;
 
 protected:
     bool processLogic(const QModbusResponse &response, QModbusDataUnit *data);
@@ -74,6 +75,7 @@ public:
     void setNumberOfRetries(int number) override { QModbusTcpClient::setNumberOfRetries(number); }
     void disconnectSignals(const QObject *receiver = nullptr) override { QObject::disconnect(receiver); }
     void deleteLater() override { QObject::deleteLater(); }
+    QVariant connectionParameter(QModbusDevice::ConnectionParameter parameter) const override { return QModbusTcpClient::connectionParameter(parameter); }
 
 protected:
     bool processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data) override;
@@ -98,6 +100,7 @@ public:
     void setNumberOfRetries(int number) override { QModbusRtuSerialClient::setNumberOfRetries(number); }
     void disconnectSignals(const QObject *receiver = nullptr) override { QObject::disconnect(receiver); }
     void deleteLater() override { QObject::deleteLater(); }
+    QVariant connectionParameter(QModbusDevice::ConnectionParameter parameter) const override { return QModbusRtuSerialClient::connectionParameter(parameter); }
 
 protected:
     bool processPrivateResponse(const QModbusResponse &response, QModbusDataUnit *data) override;

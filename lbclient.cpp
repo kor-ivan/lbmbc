@@ -121,6 +121,21 @@ void LBclient::setlbHost(const QString host, const QString filename, const QStri
         pyaml->setlbhost(host);
         if (!dynamic_cast<lbModbusRtuClient*>(lbDevice))
             setTCPaddr(pyaml->getIPv6fromYaml(), 502, iface);
+        else{
+            int m_addr;
+            int m_baudRate;
+            int m_dataBits;
+            int m_parity;
+            int m_stopBits;
+            if (pyaml->getRtuSettings(m_addr, m_baudRate, m_dataBits, m_parity, m_stopBits)){
+                if (!(lbDevice->connectionParameter(QModbusDevice::SerialBaudRateParameter) == m_baudRate &&
+                      lbDevice->connectionParameter(QModbusDevice::SerialDataBitsParameter) == m_dataBits &&
+                      lbDevice->connectionParameter(QModbusDevice::SerialParityParameter) == m_parity &&
+                      lbDevice->connectionParameter(QModbusDevice::SerialStopBitsParameter) == m_stopBits)){
+                    emit newRtuSettings(m_addr, m_baudRate, m_dataBits, m_parity, m_stopBits);
+                }
+            }
+        }
     }else{
         lbDevice->setDeviceError(lbYamlParsingErrorStr + pyaml->getErr(),lbYamlParsingError);
     }
@@ -315,7 +330,6 @@ void LBclient::Stoping()
 
 void LBclient::Run()
 {
-    // createlbRequest(getJsonStr(queryString.at(0)));
     switch (lbType.alg) {
     case lbota:
         lbDevice->setTimeout((!lbType.slot.isEmpty())?lbOtaSlotTimeout:lbOtaTimeout);

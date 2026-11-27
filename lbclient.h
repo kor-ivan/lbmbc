@@ -93,6 +93,7 @@ signals:
     void ExecuteFinished (const QString& message, const QModbusDevice::Error error);
     void lbConnected (const QString& lbhost);
     void lbDebugMessage (const QString &message);
+    void newRtuSettings(const int addr, const int baudRate, const int dataBits, const int parity, const int stopBits);
 
 private slots:
     void isConnected(QModbusDevice::State);
